@@ -2,8 +2,8 @@ import re
 from unidecode import unidecode
 from simplemma.langdetect import lang_detector
 import simplemma
-import stemmer_cs
-import stemmer_sk
+import utils.stemmer_cs
+import utils.stemmer_sk
 
 def to_lower(text):
     """

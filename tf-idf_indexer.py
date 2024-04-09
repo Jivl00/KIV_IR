@@ -5,11 +5,11 @@ import time
 
 import numpy as np
 from collections import defaultdict
-import preprocessing_test as preprocessor
+import preprocessing_pipelines
 
 # PIPELINE
 # pipeline = preprocessor.pipeline_stemmer
-pipeline = preprocessor.pipeline_lemmatizer
+pipeline = preprocessing_pipelines.pipeline_lemmatizer
 
 
 # FIELDS
