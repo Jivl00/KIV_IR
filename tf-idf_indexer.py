@@ -8,8 +8,8 @@ from collections import defaultdict
 import preprocessing_pipelines
 
 # PIPELINE
-# pipeline = preprocessor.pipeline_stemmer
-pipeline = preprocessing_pipelines.pipeline_lemmatizer
+pipeline = preprocessing_pipelines.pipeline_stemmer
+# pipeline = preprocessing_pipelines.pipeline_lemmatizer
 
 
 # FIELDS

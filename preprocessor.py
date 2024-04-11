@@ -93,10 +93,10 @@ def stem(line, tokens, aggressive=True):
     language = dict(language)
     try:
         if language['cs'] > language['sk']:  # if czech
-            return [stemmer_cs.stem(word, aggressive) for word in tokens]
-        return [stemmer_sk.stem(word, aggressive) for word in tokens]
+            return [utils.stemmer_cs.stem(word, aggressive) for word in tokens]
+        return [utils.stemmer_sk.stem(word, aggressive) for word in tokens]
     except KeyError:  # if no language detected
-        return [stemmer_cs.stem(word, aggressive) for word in tokens]
+        return [utils.stemmer_cs.stem(word, aggressive) for word in tokens]
 
 
 def lemmatize(line, tokens):
