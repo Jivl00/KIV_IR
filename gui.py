@@ -65,10 +65,11 @@ class SearchEngineGUI(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.setWindowTitle("Elder Scrolls Vyhledávač")
         layout = QVBoxLayout()
 
         self.search_bar = LineEdit()
-        self.search_bar.setPlaceholderText("Enter search query...")
+        self.search_bar.setPlaceholderText("Zadejte hledaný výraz...")
 
         # List of words for auto-suggestion
         with open("index.json", "r", encoding="utf-8") as file:
