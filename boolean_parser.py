@@ -40,9 +40,9 @@ def infix_to_postfix(query):
             raise ValueError("Mismatched parentheses")
         postfix.append(stack.pop())  # Pop any remaining operators from stack to output
 
-    return " ".join(postfix)  # Return postfix as a string
+    return postfix
 
 
 # Test the function
-query = "NOT Geralt AND(z OR NOT NOT Rivie a lyrie) AND NOT Ciri"
-print(infix_to_postfix(query))
+# query = "NOT Geralt AND(z OR NOT NOT Rivie a lyrie) AND NOT Ciri"
+# print(infix_to_postfix(query))

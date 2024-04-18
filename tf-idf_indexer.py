@@ -6,6 +6,7 @@ import time
 import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
+from boolean_parser import infix_to_postfix
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
@@ -15,6 +16,10 @@ pipeline = preprocessing_pipelines.pipeline_stemmer
 # FIELDS
 # given by the web crawler
 fields = ["title", "table_of_contents", "infobox", "content"]
+
+# UNUSED IDs
+unused_ids = []
+max_id = 0
 
 def load_documents(data_folder="data"):
     """
@@ -31,7 +36,8 @@ def load_documents(data_folder="data"):
                 data["id"] = str(index) # add document id
                 index += 1
                 docs.append(data)
-
+    global max_id
+    max_id = index
     print("Loaded", len(docs), "documents")
     return docs
 
@@ -135,8 +141,48 @@ def calculate_k_best_scores(scores, k):
     """
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
+def boolean_search(query, field, index, docs):
+    print("Searching for the query: {} using the boolean model".format(query))
+    postfix_query = infix_to_postfix(query)
+    print("Postfix query:", postfix_query)
+    stack = []
+    for token in postfix_query:
+        if token not in ["AND", "OR", "NOT"]:
+            token = pipeline(token)[0]
+            if field == "":
+                all_docIDs = set()
+                for f in fields:
+                    if token in index[f]:
+                        all_docIDs.update(index[f][token]["docIDs"].keys())
+                stack.append(list(all_docIDs))
+            else:
+                if token in index[field]:
+                    stack.append(list(index[field][token]["docIDs"].keys()))
+                else:
+                    stack.append([])
+        else:
+            if token == "AND":
+                stack.append(set(stack.pop()).intersection(stack.pop()))
+            elif token == "OR":
+                stack.append(set(stack.pop()).union(stack.pop()))
+            elif token == "NOT":
+                all_ids = set(map(str, range(max_id)))
+                dif = stack.pop()
+                all_ids.difference_update(dif)
+                all_ids.difference_update(unused_ids)
+                stack.append(all_ids)
+    result = stack.pop()
+    print("Found", len(result), "documents:")
+    for docID in result:
+        print("Document", docID)
+        print("Title:", docs[int(docID)]["title"])
+        print("\n")
 
-def search(query, field, k, index, document_norms, docs):
+
+
+
+
+def search(query, field, k, index, model, document_norms, docs):
     """
     Searches for the query in the index and prints the k best documents
     :param query:  query to search for
@@ -148,10 +194,14 @@ def search(query, field, k, index, document_norms, docs):
     :return: None (prints the k best documents)
     """
     print("=" * 50)
+    if model == "boolean":
+        boolean_search(query, field, index, docs)
+        return None
+    query_orig = query
+    query = pipeline(query)
     if field == "": # search in all fields
-        print("Searching for the query: {} in all fields".format(query))
+        print("Searching for the query: {} in all fields".format(query_orig))
         score_by_field = {}
-        query = pipeline(query)
         for field in fields: # search in all fields
             query_tf_idf, query_norm = query_prep(query, index[field])
             scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
@@ -172,8 +222,7 @@ def search(query, field, k, index, document_norms, docs):
             print("\n")
 
     else: # search in the specified field
-        print("Searching for the query: {} in the field {}".format(query, field))
-        query = pipeline(query)
+        print("Searching for the query: {} in the field {}".format(query_orig, field))
         query_tf_idf, query_norm = query_prep(query, index[field])
         scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
         k_best_scores = calculate_k_best_scores(scores, k)
@@ -190,7 +239,7 @@ def main():
     for doc in docs:
         preped_docs.append(preprocess(doc))
 # -----------Indexing the documents------------------------
-    create_index(preped_docs) # skip this step if the index is already created
+#     create_index(preped_docs) # skip this step if the index is already created
 # -----------Loading the index and document norms-----------
     with open("index.json", "r", encoding="utf-8") as file:
         index = json.load(file)
@@ -199,23 +248,30 @@ def main():
         document_norms = json.load(file)
 # ---------------------------------------------------------
 # -----------Searching for the query-----------------------
+    query = "nůž OR dýka AND prdel"
+    model = "boolean"
+    k = 3
+
+    search(query, "title", k, index, model, document_norms, docs)
+# ---------------------------------------------------------
+    model = "tf-idf"
     query = "Kdo je daedrický princ?"
     field = "" # search in all fields
     k = 3
 
-    search(query, field, k, index, document_norms, docs)
+    search(query, field, k, index, model, document_norms, docs)
 # ---------------------------------------------------------
     query = "Příchod lidí a Noc Slz"
     field = "table_of_contents" # search in the table of contents
     k = 2
 
-    search(query, field, k, index, document_norms, docs)
+    search(query, field, k, index, model, document_norms, docs)
 # ---------------------------------------------------------
     query = "nůž a dýka"
     field = "content" # search in the content
     k = 5
 
-    search(query, field, k, index, document_norms, docs)
+    search(query, field, k, index, model, document_norms, docs)
 
 if __name__ == "__main__":
     start_time = time.time()
