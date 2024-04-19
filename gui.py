@@ -1,6 +1,6 @@
 # k, model, index, field
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox
+from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
     QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
 import json
@@ -9,14 +9,22 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QCompleter, QLineEdit
 import qdarktheme
+from lang_detector import LangDetector
 
 
 user_search_history = []
-query = ""
+SEARCH_CONFIG = {
+    "query": "",
+    "index": "i 1",
+    "field": "Celý dokument",
+    "model": "TF-IDF model",
+    "k": 10,
+    "lang": False
+}
 
 # Set the font size
 font = QFont()
-font.setPointSize(20)
+font.setPointSize(14)
 
 class LineEdit(QLineEdit):
     def __init__(self, parent=None):
@@ -72,6 +80,7 @@ class SearchEngineGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.lang_detector = LangDetector(only_czech_slovak=False)
 
     def initUI(self):
         self.setWindowTitle("Elder Scrolls Vyhledávač")
@@ -92,9 +101,9 @@ class SearchEngineGUI(QWidget):
         # Add a search button next to the search bar
         self.search_button = QPushButton()
         self.search_button.setIcon(QIcon('img/magnifying-glass-3-xxl.png'))  # Set the icon
-        self.search_button.setIconSize(QSize(50, 50))  # Set the icon size
+        self.search_button.setIconSize(QSize(30, 30))  # Set the icon size
         self.search_button.clicked.connect(self.perform_search)  # Connect the clicked signal to the perform_search method
-        self.search_button.setFixedSize(100, 50)
+        self.search_button.setFixedSize(80, 40)
         # self.search_button.setFont(font)
 
         # List of words for auto-suggestion
@@ -107,38 +116,40 @@ class SearchEngineGUI(QWidget):
         # Connect the returnPressed signal to the perform_search method
         self.search_bar.returnPressed.connect(self.perform_search)
 
-        grid_layout.addWidget(self.search_bar, 0, 0)  # Add to first row, first column
-        grid_layout.addWidget(self.search_button, 0, 1)  # Add to first row, second column
+        grid_layout.addWidget(self.search_bar, 0, 0,1,3)  # Add to first row, first column
+        grid_layout.addWidget(self.search_button, 0, 2)  # Add to first row, second column
 
         # Add a combobox next to the search bar
         self.index_combobox = QComboBox()
         self.index_combobox.setFont(font)
-        self.index_combobox.addItem("Option 1")
-        self.index_combobox.addItem("Option 2")
-        self.index_combobox.addItem("Option 3")
+        self.index_combobox.addItem("i 1")
+        self.index_combobox.addItem("i 2")
+        self.index_combobox.addItem("i 3")
 
-        self.description_label = QLabel("Select an option:")
+        self.description_label = QLabel("Index:")
         self.description_label.setFont(font)
 
         # Connect the currentIndexChanged signal to the print_selected_option method
-        self.index_combobox.currentIndexChanged.connect(self.print_selected_option)
+        self.index_combobox.currentIndexChanged.connect(self.update_selected_index)
 
-        grid_layout.addWidget(self.description_label, 0, 2)  # Add to first row, first column
+        grid_layout.addWidget(self.description_label, 0, 3)  # Add to first row, first column
         grid_layout.addWidget(self.index_combobox, 0, 4)  # Add to first row, second column
 
 
         # Add a combobox next to the search bar
         self.field_combobox = QComboBox()
         self.field_combobox.setFont(font)
-        self.field_combobox.addItem("Option 1")
-        self.field_combobox.addItem("Option 2")
-        self.field_combobox.addItem("Option 3")
+        self.field_combobox.addItem("Celý dokument")
+        self.field_combobox.addItem("Nadpis")
+        self.field_combobox.addItem("Obsah")
+        self.field_combobox.addItem("Tabulka")
+        self.field_combobox.addItem("Hlavní text")
 
-        self.description_label = QLabel("Select an option:")
+        self.description_label = QLabel("Sekce:")
         self.description_label.setFont(font)
 
         # Connect the currentIndexChanged signal to the print_selected_option method
-        self.field_combobox.currentIndexChanged.connect(self.print_selected_option)
+        self.field_combobox.currentIndexChanged.connect(self.update_selected_field)
 
         grid_layout.addWidget(self.description_label, 1, 3)  # Add to first row, first column
         grid_layout.addWidget(self.field_combobox, 1, 4)  # Add to first row, second column
@@ -146,39 +157,33 @@ class SearchEngineGUI(QWidget):
         # Add a combobox for model selection
         self.model_combobox = QComboBox()
         self.model_combobox.setFont(font)
-        self.model_combobox.addItem("model1")
-        self.model_combobox.addItem("model2")
+        self.model_combobox.addItem("TF-IDF model")
+        self.model_combobox.addItem("Booleovský model")
 
-        self.model_label = QLabel("Select a model:")
+        self.model_label = QLabel("Model:")
         self.model_label.setFont(font)
 
         # Connect the currentIndexChanged signal to the handle_model_selection method
         self.model_combobox.currentIndexChanged.connect(self.handle_model_selection)
 
-        grid_layout.addWidget(self.model_label, 2, 2)  # Add to third row, third column
+        grid_layout.addWidget(self.model_label, 2, 3)  # Add to third row, third column
         grid_layout.addWidget(self.model_combobox, 2, 4)  # Add to third row, fifth column
 
         # Add an additional field for the selection of value k
-        self.k_field = QLineEdit()
+        self.k_field = QSpinBox()
         self.k_field.setFont(font)
-        self.k_field.setPlaceholderText("Enter value for k...")
+        self.k_field.setMinimum(1)
+        self.k_field.setMaximum(100)
+        self.k_field.setValue(10)
 
-        self.k_label = QLabel("Enter value for k:")
+        self.k_label = QLabel("Počet nejlepších vyhledaných\ndokumentů k zobrazení:")
         self.k_label.setFont(font)
 
-        grid_layout.addWidget(self.k_label, 3, 2)  # Add to fourth row, third column
+        # Connect the valueChanged signal to the update_selected_k method
+        self.k_field.valueChanged.connect(self.update_selected_k)
+
+        grid_layout.addWidget(self.k_label, 3, 3)  # Add to fourth row, third column
         grid_layout.addWidget(self.k_field, 3, 4)  # Add to fourth row, fifth column
-
-        # Initially hide the k field and its label
-        self.k_field.hide()
-        self.k_label.hide()
-
-        # ... existing code ...
-
-
-
-
-
 
 
         self.checkbox_lang = QCheckBox('Detekce jazyka')
@@ -186,9 +191,16 @@ class SearchEngineGUI(QWidget):
         self.checkbox_lang.setFont(font)
         grid_layout.addWidget(self.checkbox_lang, 1, 0)
 
+        self.checkbox_lang.stateChanged.connect(self.update_selected_lang)
+
+        self.under_search_bar_text = QLabel("j")
+        self.under_search_bar_text.setFont(font)
+        grid_layout.addWidget(self.under_search_bar_text, 1, 1)
 
 
 
+
+        # QTextBrowser for displaying the search results
         # Add the QGridLayout to the main QVBoxLayout
         layout.addLayout(grid_layout)
 
@@ -202,8 +214,8 @@ class SearchEngineGUI(QWidget):
         self.setLayout(layout)
 
     def handle_model_selection(self):
-        # If the selected model is "model1", show the k field and its label
-        if self.model_combobox.currentText() == "model1":
+        self.update_selected_model()
+        if self.model_combobox.currentText() == "TF-IDF model":
             self.k_field.show()
             self.k_label.show()
         else:
@@ -211,26 +223,56 @@ class SearchEngineGUI(QWidget):
             self.k_field.hide()
             self.k_label.hide()
 
-    def search(self, query):
-        user_search_history.append(query)
+    def search(self):
+        user_search_history.append(SEARCH_CONFIG["query"])  # Append the query to the user search history
         # For now, just return "SAMPLE PAGE" concatenated with the query
-        print("Query:", query)
-        print("User search history:", user_search_history)
+        print("Search config:", SEARCH_CONFIG)
+        # print("User search history:", user_search_history)
 
-        return ["SAMPLE PAGE: " + query] * 10
+        return ["SAMPLE PAGE: " + SEARCH_CONFIG["query"]] * 10
 
     def perform_search(self):
-        query = self.search_bar.text()
-        print("Searching...")
-        results = self.search(query)  # Call the search method here
+        SEARCH_CONFIG["query"] = self.search_bar.text()
+        results = self.search()  # Call the search method here
         self.result_display.clear()
 
         for result in results:
             item = QListWidgetItem(result)
             self.result_display.addItem(item)
 
-    def print_selected_option(self):
-        print("Selected option:", self.index_combobox.currentText())
+        # Language detection
+        if self.checkbox_lang.isChecked():
+            language = self.lang_detector.predict(SEARCH_CONFIG["query"])
+            # ['cs', 'de', 'en', 'es', 'fr', 'it', 'pl', 'pt', 'ru', 'sk']
+            detected_lang = {
+                "cs": "Detekován český jazyk",
+                "de": "Detekován německý jazyk",
+                "en": "Detekován anglický jazyk",
+                "es": "Detekován španělský jazyk",
+                "fr": "Detekován francouzský jazyk",
+                "it": "Detekován italský jazyk",
+                "pl": "Detekován polský jazyk",
+                "pt": "Detekován portugalský jazyk",
+                "ru": "Detekován ruský jazyk",
+                "sk": "Detekován slovenský jazyk",
+            }.get(language, "Detekován neznámý jazyk")
+            self.under_search_bar_text.setText(detected_lang)
+
+    def update_selected_field(self):
+        SEARCH_CONFIG["field"] = self.field_combobox.currentText()
+    def update_selected_index(self):
+        SEARCH_CONFIG["index"] = self.index_combobox.currentText()
+
+    def update_selected_model(self):
+        SEARCH_CONFIG["model"] = self.model_combobox.currentText()
+
+    def update_selected_k(self):
+        SEARCH_CONFIG["k"] = self.k_field.value()
+
+    def update_selected_lang(self):
+        SEARCH_CONFIG["lang"] = self.checkbox_lang.isChecked()
+        if not self.checkbox_lang.isChecked():
+            self.under_search_bar_text.setText("")
 
 
 
