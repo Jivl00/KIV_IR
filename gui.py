@@ -1,6 +1,8 @@
 # k, model, index, field
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox
+from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox, \
+    QScrollBar, QAbstractItemView
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
     QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
 import json
@@ -9,7 +11,9 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QCompleter, QLineEdit
 import qdarktheme
+
 from lang_detector import LangDetector
+from PyQt5.QtCore import Qt
 
 
 user_search_history = []
@@ -23,8 +27,10 @@ SEARCH_CONFIG = {
 }
 
 # Set the font size
+font_size = 12
 font = QFont()
-font.setPointSize(14)
+font.setPointSize(font_size)
+
 
 class LineEdit(QLineEdit):
     def __init__(self, parent=None):
@@ -76,6 +82,40 @@ class LineEdit(QLineEdit):
         self.add_word(text)
 
 
+class ResultText(QWidget):
+    def __init__(self, title, content):
+        super().__init__()
+
+        # Create a QFont object and set its bold property to True
+        font_bold = QFont()
+        font_bold.setPointSize(font_size)
+        font_bold.setBold(True)
+
+        font_smaller = QFont()
+        font_smaller.setPointSize(font_size - 2)
+
+        # Create a QLabel for the title and set its font to the QFont object
+        self.title_label = QLabel(title)
+        self.title_label.setFont(font_bold)
+        self.title_label.setWordWrap(True)
+        self.title_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+
+        # Create a QLabel for the content
+        self.content_label = QLabel(content)
+        self.content_label.setFont(font_smaller)
+        self.content_label.setWordWrap(True)
+        self.content_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.content_label.setFixedWidth(int(monitor_width * 0.9))
+
+        # Add the title and content labels to the layout of the custom widget
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.title_label)
+        self.layout.addWidget(self.content_label)
+
+        self.setLayout(self.layout)
+
+
+
 class SearchEngineGUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -103,7 +143,7 @@ class SearchEngineGUI(QWidget):
         self.search_button.setIcon(QIcon('img/magnifying-glass-3-xxl.png'))  # Set the icon
         self.search_button.setIconSize(QSize(30, 30))  # Set the icon size
         self.search_button.clicked.connect(self.perform_search)  # Connect the clicked signal to the perform_search method
-        self.search_button.setFixedSize(80, 40)
+        self.search_button.setFixedSize(80, 32)
         # self.search_button.setFont(font)
 
         # List of words for auto-suggestion
@@ -193,7 +233,7 @@ class SearchEngineGUI(QWidget):
 
         self.checkbox_lang.stateChanged.connect(self.update_selected_lang)
 
-        self.under_search_bar_text = QLabel("j")
+        self.under_search_bar_text = QLabel("")
         self.under_search_bar_text.setFont(font)
         grid_layout.addWidget(self.under_search_bar_text, 1, 1)
 
@@ -204,7 +244,12 @@ class SearchEngineGUI(QWidget):
         # Add the QGridLayout to the main QVBoxLayout
         layout.addLayout(grid_layout)
 
+
         self.result_display = QListWidget()
+        self.result_display.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.result_display.setFont(font)
+        self.result_display.setWordWrap(True)
+
         layout.addWidget(self.result_display)
 
         self.settings_form = QFormLayout()
@@ -228,22 +273,33 @@ class SearchEngineGUI(QWidget):
         # For now, just return "SAMPLE PAGE" concatenated with the query
         print("Search config:", SEARCH_CONFIG)
         # print("User search history:", user_search_history)
-
-        return ["SAMPLE PAGE: " + SEARCH_CONFIG["query"]] * 10
+        title = "Daggerfall - The Elder Scrolls II"
+        content = "Daggerfall je počítačová hra z roku 1996, kterou vyvinula a vydala společnost Bethesda Softworks. Je to druhý díl série The Elder Scrolls a pokračování hry The Elder Scrolls: Arena. Daggerfall byl navržen s otevřeným světem a je považován za jednu z největších videoher v historii. Hra byla vydána pro MS-DOS a podporuje rozlišení 320x200. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009. Daggerfall byl vydán jako svobodný software v roce 2009."
+        doc_id = 1
+        n = 50
+        ret = [[f"{title} (id: {doc_id})", content]] * n
+        print(ret)
+        found = "Nalezeno " + str(n) + " výsledků pro dotaz: " + SEARCH_CONFIG["query"]
+        return found, ret
 
     def perform_search(self):
         SEARCH_CONFIG["query"] = self.search_bar.text()
-        results = self.search()  # Call the search method here
+        num, results = self.search()  # Call the search method here
         self.result_display.clear()
+        item = QListWidgetItem()
+        item.setText(num)
+        self.result_display.addItem(item)
 
         for result in results:
-            item = QListWidgetItem(result)
+            result_text = ResultText(result[0], result[1])
+            item = QListWidgetItem()
+            item.setSizeHint(result_text.sizeHint())
             self.result_display.addItem(item)
+            self.result_display.setItemWidget(item, result_text)
 
         # Language detection
         if self.checkbox_lang.isChecked():
             language = self.lang_detector.predict(SEARCH_CONFIG["query"])
-            # ['cs', 'de', 'en', 'es', 'fr', 'it', 'pl', 'pt', 'ru', 'sk']
             detected_lang = {
                 "cs": "Detekován český jazyk",
                 "de": "Detekován německý jazyk",
@@ -284,5 +340,6 @@ if __name__ == '__main__':
 
     window = SearchEngineGUI()
     window.showMaximized()
+    monitor_width = app.desktop().screenGeometry().width()
 
     sys.exit(app.exec_())
