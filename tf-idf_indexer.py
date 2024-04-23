@@ -49,8 +49,8 @@ def preprocess(doc):
     """
 
     # this structure is assumed - output of the web crawler
-    preprocessed_data = {"title": pipeline(doc["title"]), "table_of_contents": doc["table_of_contents"],
-                            "infobox": pipeline(doc["infobox"]), "content": pipeline(doc["content"]), "id": doc["id"]}
+    preprocessed_data = {"title": pipeline(doc["title"], True), "table_of_contents": doc["table_of_contents"],
+                            "infobox": pipeline(doc["infobox"], True), "content": pipeline(doc["content"], True), "id": doc["id"]}
     chapter_num = r"\b\d+(?:\.\d+)*\b"  # regex for chapter number
     preprocessed_data["table_of_contents"] = preprocessed_data["table_of_contents"] = [word for chapter in
                                              preprocessed_data["table_of_contents"] for word in pipeline(re.sub
@@ -235,11 +235,12 @@ def search(query, field, k, index, model, document_norms, docs):
 def main():
 # -----------Loading and preprocessing the documents-------
     docs = load_documents()
+    preprocessing_pipelines.clear_keywords_cache()
     preped_docs = []
     for doc in docs:
         preped_docs.append(preprocess(doc))
 # -----------Indexing the documents------------------------
-#     create_index(preped_docs) # skip this step if the index is already created
+    create_index(preped_docs) # skip this step if the index is already created
 # -----------Loading the index and document norms-----------
     with open("index.json", "r", encoding="utf-8") as file:
         index = json.load(file)

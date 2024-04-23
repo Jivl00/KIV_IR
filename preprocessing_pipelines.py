@@ -9,7 +9,7 @@ CZECH_STOPWORDS = "utils/stopwords-cs.txt"
 SLOVAK_STOPWORDS = "utils/stopwords-sk.txt"
 
 
-def pipeline_tokenizer(text):
+def pipeline_tokenizer(text, save_keywords=False):
     """
     Tokenizes the input text and removes stopwords
     :param text:  input text
@@ -24,13 +24,16 @@ def pipeline_tokenizer(text):
                                preprocessed_text)  # add space between number and letter or letter and number
 
     tokens = preprocessor.tokenize(preprocessed_text)  # tokenize the text
+    if save_keywords:
+        with open("cache/keywords.txt", "a", encoding="utf-8") as file:
+            file.write("\n".join(set(tokens)) + "\n")
     tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
     tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
 
     return preprocessed_text, tokens
 
 
-def pipeline_stemmer(text):
+def pipeline_stemmer(text, save_keywords=False):
     """
     Stems the input text and removes diacritics
     :param text:  input text
@@ -38,12 +41,12 @@ def pipeline_stemmer(text):
     """
     if not text:  # if the text isn't empty
         return []
-    preprocessed_text, tokens = pipeline_tokenizer(text)  # tokenize the text
+    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords)  # tokenize the text
     stemmed = preprocessor.stem(preprocessed_text, tokens)  # stem the tokens
     return stemmed
 
 
-def pipeline_lemmatizer(text):
+def pipeline_lemmatizer(text, save_keywords=False):
     """
     Lemmatizes the input text and removes diacritics
     :param text:  input text
@@ -51,7 +54,7 @@ def pipeline_lemmatizer(text):
     """
     if not text:  # if the text isn't empty
         return []
-    preprocessed_text, tokens = pipeline_tokenizer(text)  # tokenize the text
+    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords)  # tokenize the text
     lemmatized = preprocessor.lemmatize(preprocessed_text, tokens)  # lemmatize the tokens
     return lemmatized
 
@@ -65,10 +68,12 @@ def preprocess_file(file_path, pipeline):
     """
     with open(file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
+    with open("cache/keywords.json", "w", encoding="utf-8") as file: # clear the keywords cache
+        json.dump([], file, ensure_ascii=False, indent=1)
 
     # this structure is assumed - output of the web crawler
-    preprocessed_data = {"title": pipeline(data["title"]), "table_of_contents": data["table_of_contents"],
-                         "infobox": pipeline(data["infobox"]), "content": pipeline(data["content"])}
+    preprocessed_data = {"title": pipeline(data["title"], True), "table_of_contents": data["table_of_contents"],
+                         "infobox": pipeline(data["infobox"], True), "content": pipeline(data["content"], True)}
 
     # preprocess the table of contents
     preprocessed_data["table_of_contents"] = preprocessed_data["table_of_contents"][
@@ -82,6 +87,10 @@ def preprocess_file(file_path, pipeline):
     #     json.dump(preprocessed_data, file, ensure_ascii=False, indent=4)
 
     return preprocessed_data
+
+def clear_keywords_cache():
+    with open("cache/keywords.txt", "w", encoding="utf-8") as file:
+        file.write("")
 
 
 if __name__ == "__main__":

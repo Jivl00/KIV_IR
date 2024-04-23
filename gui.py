@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QText
     QScrollBar, QAbstractItemView
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
     QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
-import json
 from functools import cached_property
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
@@ -95,7 +94,7 @@ class ResultText(QWidget):
         font_smaller.setPointSize(font_size - 2)
 
         # Create a QLabel for the title and set its font to the QFont object
-        self.title_label = QLabel(title)
+        self.title_label = QLabel('<span style="color:#8bb6e0;">'+title +'</span>')
         self.title_label.setFont(font_bold)
         self.title_label.setWordWrap(True)
         self.title_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
@@ -147,10 +146,10 @@ class SearchEngineGUI(QWidget):
         # self.search_button.setFont(font)
 
         # List of words for auto-suggestion
-        with open("index.json", "r", encoding="utf-8") as file:
-            self.index = json.load(file)
+        with open("cache/keywords.txt", "r", encoding="utf-8") as file:
+            words = file.read().splitlines()
 
-        words = list(self.index['content'].keys())
+        words = sorted(set(words))
         self.search_bar.add_words(words)
 
         # Connect the returnPressed signal to the perform_search method
@@ -278,11 +277,11 @@ class SearchEngineGUI(QWidget):
         doc_id = 1
         n = 50
         ret = [[f"{title} (id: {doc_id})", content]] * n
-        print(ret)
         found = "Nalezeno " + str(n) + " výsledků pro dotaz: " + SEARCH_CONFIG["query"]
         return found, ret
 
     def perform_search(self):
+        self.update_keywords()
         SEARCH_CONFIG["query"] = self.search_bar.text()
         num, results = self.search()  # Call the search method here
         self.result_display.clear()
@@ -329,6 +328,12 @@ class SearchEngineGUI(QWidget):
         SEARCH_CONFIG["lang"] = self.checkbox_lang.isChecked()
         if not self.checkbox_lang.isChecked():
             self.under_search_bar_text.setText("")
+    def update_keywords(self):
+        # with open("cache/keywords.txt", "r", encoding="utf-8") as file:
+        #     words = file.read().splitlines()
+        #
+        # words = sorted(set(words))
+        self.search_bar.add_words(['prd', 'prdel'])
 
 
 
