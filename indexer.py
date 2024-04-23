@@ -5,7 +5,7 @@ import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
 from boolean_parser import infix_to_postfix
-from crud import load_documents, preprocess, create_index, max_id, fields, unused_ids
+from crud import load_documents, create_index, fields, create_index_from_folder
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
@@ -66,6 +66,8 @@ def boolean_search(query, field, index, docs):
     postfix_query = infix_to_postfix(query)
     print("Postfix query:", postfix_query)
     stack = []
+    max_id = docs["max_id"]
+    unused_ids = docs["unused_ids"]
     for token in postfix_query:
         if token not in ["AND", "OR", "NOT"]:
             token = pipeline(token)[0]
@@ -86,7 +88,7 @@ def boolean_search(query, field, index, docs):
             elif token == "OR":
                 stack.append(set(stack.pop()).union(stack.pop()))
             elif token == "NOT":
-                all_ids = set(map(str, range(max_id)))
+                all_ids = set(map(str, range(max_id + 1)))
                 dif = stack.pop()
                 all_ids.difference_update(dif)
                 all_ids.difference_update(unused_ids)
@@ -95,9 +97,8 @@ def boolean_search(query, field, index, docs):
     print("Found", len(result), "documents:")
     for docID in result:
         print("Document", docID)
-        print("Title:", docs[int(docID)]["title"])
+        print("Title:", docs["docs"][int(docID)]["title"])
         print("\n")
-
 
 
 
@@ -138,7 +139,7 @@ def search(query, field, k, index, model, document_norms, docs):
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs[int(docID)]["title"])
+            print("Title:", docs["docs"][int(docID)]["title"])
             print("\n")
 
     else: # search in the specified field
@@ -149,31 +150,20 @@ def search(query, field, k, index, model, document_norms, docs):
         print("Top", k, "documents:")
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs[int(docID)]["title"])
+            print("Title:", docs["docs"][int(docID)]["title"])
             print("\n")
 
 def main():
 # -----------Loading and preprocessing the documents-------
-    docs = load_documents()
-    preprocessing_pipelines.clear_keywords_cache()
-    preped_docs = []
-    for doc in docs:
-        preped_docs.append(preprocess(doc, pipeline))
-# -----------Indexing the documents------------------------
-    create_index(preped_docs) # skip this step if the index is already created
-# -----------Loading the index and document norms-----------
-    with open("index.json", "r", encoding="utf-8") as file:
-        index = json.load(file)
-
-    with open("document_norms.json", "r", encoding="utf-8") as file:
-        document_norms = json.load(file)
+    docs, index, document_norms = create_index_from_folder(pipeline)
 # ---------------------------------------------------------
 # -----------Searching for the query-----------------------
-    query = "nůž OR dýka AND prdel"
+    query = "nůž OR dýka"
     model = "boolean"
     k = 3
 
     search(query, "title", k, index, model, document_norms, docs)
+    search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
 # ---------------------------------------------------------
     model = "tf-idf"
     query = "Kdo je daedrický princ?"

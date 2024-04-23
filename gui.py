@@ -298,7 +298,7 @@ class SearchEngineGUI(QWidget):
 
         # Language detection
         if self.checkbox_lang.isChecked():
-            language = self.lang_detector.predict(SEARCH_CONFIG["query"])
+            language = self.lang_detector.predict(SEARCH_CONFIG["query"])[0]
             detected_lang = {
                 "cs": "Detekován český jazyk",
                 "de": "Detekován německý jazyk",
@@ -329,11 +329,13 @@ class SearchEngineGUI(QWidget):
         if not self.checkbox_lang.isChecked():
             self.under_search_bar_text.setText("")
     def update_keywords(self):
+        # TODO resolve the segfault
         # with open("cache/keywords.txt", "r", encoding="utf-8") as file:
         #     words = file.read().splitlines()
         #
         # words = sorted(set(words))
-        self.search_bar.add_words(['prd', 'prdel'])
+        pass
+        # self.search_bar.add_words(['prd', 'prdel'])
 
 
 

@@ -68,8 +68,6 @@ def preprocess_file(file_path, pipeline):
     """
     with open(file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
-    with open("cache/keywords.json", "w", encoding="utf-8") as file: # clear the keywords cache
-        json.dump([], file, ensure_ascii=False, indent=1)
 
     # this structure is assumed - output of the web crawler
     preprocessed_data = {"title": pipeline(data["title"], True), "table_of_contents": data["table_of_contents"],
@@ -88,18 +86,26 @@ def preprocess_file(file_path, pipeline):
 
     return preprocessed_data
 
+
+def preprocess(doc, pipeline):
+    """
+    Preprocesses the document using the lemmatizer or stemmer pipeline
+    :param doc: input document
+    :param pipeline: preprocessing pipeline
+    :return: preprocessed document (tokenized, lowercased, without stopwords, etc.)
+    """
+
+    # this structure is assumed - output of the web crawler
+    preprocessed_data = {"title": pipeline(doc["title"], True), "table_of_contents": doc["table_of_contents"],
+                         "infobox": pipeline(doc["infobox"], True), "content": pipeline(doc["content"], True),
+                         "id": doc["id"]}
+    chapter_num = r"\b\d+(?:\.\d+)*\b"  # regex for chapter number
+    preprocessed_data["table_of_contents"] = [word for chapter in preprocessed_data["table_of_contents"] for word in
+                                              pipeline(re.sub(chapter_num, "",
+                                                        chapter))]  # remove chapter numbers and preprocess the chapters
+    return preprocessed_data
+
+
 def clear_keywords_cache():
     with open("cache/keywords.txt", "w", encoding="utf-8") as file:
         file.write("")
-
-
-if __name__ == "__main__":
-    file_czech = "data/Skyrim.json"
-    # file_slovak = "Cyrodilická ríša.json"
-
-    # PIPELINES: pipeline_stemmer, pipeline_lemmatizer
-    data_czech = preprocess_file(file_czech, pipeline_stemmer)
-    # data_slovak = preprocess_file(file_slovak, pipeline_stemmer)
-
-    print(data_czech)
-    # print(data_slovak)

@@ -4,49 +4,43 @@ import re
 
 import numpy as np
 from collections import defaultdict
+import preprocessing_pipelines
+from lang_detector import LangDetector
 
 fields = ["title", "table_of_contents", "infobox", "content"]
+lang_detector1 = LangDetector(only_czech_slovak=False)
+lang_detector2 = LangDetector(only_czech_slovak=True)
 
-# UNUSED IDs
-unused_ids = []
-max_id = 0
 
-def load_documents(data_folder="data"):
+def load_documents(data_folder="data", cache_name="document_cache.json"):
     """
     Loads documents from the data folder
     :param data_folder:  path to the data folder
+    :param cache_name:  name of the cache file
     :return:  list of documents
     """
-    docs = []
+    docs = {"docs": [], "unused_ids": [], "max_id": 0}
     index = 0
+    contents = []
     for filename in os.listdir(data_folder):
         if filename.endswith(".json"):
             with open(os.path.join(data_folder, filename), "r", encoding="utf-8") as file:
                 data = json.load(file)
                 data["id"] = str(index) # add document id
                 index += 1
-                docs.append(data)
-    global max_id
-    max_id = index
-    print("Loaded", len(docs), "documents")
+                docs["docs"].append(data)
+                contents.append(data["content"])
+    langs1 = lang_detector1.predict(contents)
+    langs2 = lang_detector2.predict(contents)
+    for doc, lang1, lang2 in zip(docs["docs"], langs1, langs2):
+        doc["lang_cz_sk"] = lang2
+        doc["lang_all"] = lang1
+    docs["max_id"] = index - 1
+    with open(cache_name, "w", encoding="utf-8") as file:
+        json.dump(docs, file, ensure_ascii=False, indent=1)
+    print("Loaded", len(docs["docs"]), "documents")
     return docs
 
-def preprocess(doc, pipeline):
-    """
-    Preprocesses the document using the lemmatizer or stemmer pipeline
-    :param doc: input document
-    :param pipeline: preprocessing pipeline
-    :return: preprocessed document (tokenized, lowercased, without stopwords, etc.)
-    """
-
-    # this structure is assumed - output of the web crawler
-    preprocessed_data = {"title": pipeline(doc["title"], True), "table_of_contents": doc["table_of_contents"],
-                            "infobox": pipeline(doc["infobox"], True), "content": pipeline(doc["content"], True), "id": doc["id"]}
-    chapter_num = r"\b\d+(?:\.\d+)*\b"  # regex for chapter number
-    preprocessed_data["table_of_contents"] = preprocessed_data["table_of_contents"] = [word for chapter in
-                                             preprocessed_data["table_of_contents"] for word in pipeline(re.sub
-                                            (chapter_num, "", chapter))]  # remove chapter numbers and preprocess the chapters
-    return preprocessed_data
 
 def create_index(docs):
     """
@@ -77,8 +71,48 @@ def create_index(docs):
         index[field] = index_field
         document_norms[field] = document_field_norms
 
-    with open("index.json", "w", encoding="utf-8") as file: # save the index to a file
-        json.dump(dict(index), file, ensure_ascii=False, indent=4)
-    with open("document_norms.json", "w", encoding="utf-8") as file: # save the document norms to a file
-        json.dump(dict(document_norms), file, ensure_ascii=False, indent=4)
-    print("Index created and saved to a file")
+    return index, document_norms
+
+
+
+def create_index_from_folder(pipeline, data_folder="data", index_file="index.json", document_norms_file="document_norms.json",
+                             save_to_file=True):
+    """
+    Creates an inverted index from the documents in the data folder
+    :param pipeline:  preprocessing pipeline
+    :param data_folder:  path to the data folder
+    :param index_file:  path to the index file
+    :param document_norms_file:  path to the document norms file
+    :param save_to_file:  whether to save the index to a file
+    :return: None (saves the index to a file)
+    """
+    docs = load_documents(data_folder)
+    preprocessing_pipelines.clear_keywords_cache()
+    preped_docs = []
+    for doc in docs["docs"]:
+        preped_docs.append(preprocessing_pipelines.preprocess(doc, pipeline))
+
+    index, document_norms = create_index(preped_docs)  # skip this step if the index is already created
+
+    if save_to_file:
+        with open(index_file, "w", encoding="utf-8") as file:  # save the index to a file
+            json.dump(dict(index), file, ensure_ascii=False, indent=4)
+        with open(document_norms_file, "w", encoding="utf-8") as file:  # save the document norms to a file
+            json.dump(dict(document_norms), file, ensure_ascii=False, indent=4)
+        print("Index created and saved to a file")
+    return docs, index, document_norms
+
+def remove_document(index, document_norms, doc_id):
+    """
+    Removes the document from the index
+    :param index:  inverted index
+    :param document_norms:  norms of the documents
+    :param doc_id:  id of the document to remove
+    :return:  updated index and document norms
+    """
+    for field in fields:
+        for token in index[field]:
+            if doc_id in index[field][token]["docIDs"]:
+                del index[field][token]["docIDs"][doc_id]
+        del document_norms[field][doc_id]
+    return index, document_norms

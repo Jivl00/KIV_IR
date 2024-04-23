@@ -12,18 +12,22 @@ class LangDetector:
             self.model = self.load_model('models/model_all.bin')
             self.label2lang = {i: lang for i, lang in enumerate(self.languages)}
 
-    def predict(self, sentence):
+    def predict(self, sentences):
         """
         Predict language for a given sentence with a given model.
 
-        :param sentence: sentence to be predicted
+        :param sentences: sentence to be predicted
         :return: predicted label
         """
+        if not isinstance(sentences, list):
+            sentences = [sentences]
 
-        y_pred = self.model.predict([sentence])
+        y_pred = self.model.predict(sentences)
 
-        label = self.label2lang[y_pred[0]]
-        return label
+        labels = []
+        for y in y_pred:
+            labels.append(self.label2lang[y])
+        return labels
 
     def load_model(self, path):
         """
