@@ -1,11 +1,12 @@
 import json
 import time
+# TODO pickle
 
 import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
 from boolean_parser import infix_to_postfix
-from crud import load_documents, create_index, fields, create_index_from_folder
+from crud import load_documents, create_index, fields, create_index_from_folder, delete_document
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
@@ -97,7 +98,7 @@ def boolean_search(query, field, index, docs):
     print("Found", len(result), "documents:")
     for docID in result:
         print("Document", docID)
-        print("Title:", docs["docs"][int(docID)]["title"])
+        print("Title:", docs["docs"][str(docID)]["title"])
         print("\n")
 
 
@@ -139,7 +140,7 @@ def search(query, field, k, index, model, document_norms, docs):
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs["docs"][int(docID)]["title"])
+            print("Title:", docs["docs"][str(docID)]["title"])
             print("\n")
 
     else: # search in the specified field
@@ -150,7 +151,7 @@ def search(query, field, k, index, model, document_norms, docs):
         print("Top", k, "documents:")
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs["docs"][int(docID)]["title"])
+            print("Title:", docs["docs"][str(docID)]["title"])
             print("\n")
 
 def main():
@@ -163,7 +164,9 @@ def main():
     k = 3
 
     search(query, "title", k, index, model, document_norms, docs)
-    search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
+    delete_document(index, document_norms, 850, docs, pipeline)
+    search(query, "title", k, index, model, document_norms, docs)
+    # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
 # ---------------------------------------------------------
     model = "tf-idf"
     query = "Kdo je daedrický princ?"
