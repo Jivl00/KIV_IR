@@ -1,5 +1,4 @@
 import re
-from unidecode import unidecode
 from simplemma.langdetect import lang_detector
 import simplemma
 import utils.stemmer_cs

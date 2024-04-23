@@ -41,8 +41,3 @@ def infix_to_postfix(query):
         postfix.append(stack.pop())  # Pop any remaining operators from stack to output
 
     return postfix
-
-
-# Test the function
-# query = "NOT Geralt AND(z OR NOT NOT Rivie a lyrie) AND NOT Ciri"
-# print(infix_to_postfix(query))
