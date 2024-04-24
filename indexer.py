@@ -6,10 +6,13 @@ import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
 from boolean_parser import infix_to_postfix
-from crud import load_documents, create_index, fields, create_index_from_folder, delete_document, create_document
+from crud import load_documents, create_index, fields, create_index_from_folder, delete_document, create_document, \
+    update_document
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
+
+
 # pipeline = preprocessing_pipelines.pipeline_lemmatizer
 
 
@@ -50,8 +53,9 @@ def calculate_scores(query, query_norm, index, document_norms, field):
                     scores[docID] = 0
                 scores[docID] += query[word] * index[field][word]["docIDs"][docID]
     for docID in scores:
-        scores[docID] /= (query_norm * document_norms[field][docID]) # cosine similarity
+        scores[docID] /= (query_norm * document_norms[field][docID])  # cosine similarity
     return scores
+
 
 def calculate_k_best_scores(scores, k):
     """
@@ -63,6 +67,7 @@ def calculate_k_best_scores(scores, k):
     if k > len(scores):
         k = len(scores)
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
+
 
 def boolean_search(query, field, index, docs):
     print("Searching for the query: {} using the boolean model".format(query))
@@ -104,8 +109,6 @@ def boolean_search(query, field, index, docs):
         print("\n")
 
 
-
-
 def search(query, field, k, index, model, document_norms, docs):
     """
     Searches for the query in the index and prints the k best documents
@@ -123,33 +126,33 @@ def search(query, field, k, index, model, document_norms, docs):
         return None
     query_orig = query
     query = pipeline(query)
-    if field == "": # search in all fields
+    if field == "":  # search in all fields
         print("Searching for the query: {} in all fields".format(query_orig))
         score_by_field = {}
         docs_found = set()
-        for field in fields: # search in all fields
+        for field in fields:  # search in all fields
             query_tf_idf, query_norm = query_prep(query, index[field])
             scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
             docs_found.update(scores.keys())
-            k_best_scores = calculate_k_best_scores(scores, k*2)
+            k_best_scores = calculate_k_best_scores(scores, k * 2)
             score_by_field[field] = k_best_scores
 
         print("Found", len(docs_found), "documents in total")
         print("Top", k, "documents:")
-        field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5} # weights for the fields
+        field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5}  # weights for the fields
         k_best_scores = {}
-        for field in score_by_field: # combine the scores from all fields
+        for field in score_by_field:  # combine the scores from all fields
             for docID, score in score_by_field[field]:
                 if docID not in k_best_scores:
                     k_best_scores[docID] = 0
-                k_best_scores[docID] += score * field_weights[field] # add the score with the weight
+                k_best_scores[docID] += score * field_weights[field]  # add the score with the weight
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
             print("Title:", docs["docs"][str(docID)]["title"])
             print("\n")
 
-    else: # search in the specified field
+    else:  # search in the specified field
         print("Searching for the query: {} in the field {}".format(query_orig, field))
         query_tf_idf, query_norm = query_prep(query, index[field])
         scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
@@ -161,11 +164,12 @@ def search(query, field, k, index, model, document_norms, docs):
             print("Title:", docs["docs"][str(docID)]["title"])
             print("\n")
 
+
 def main():
-# -----------Loading and preprocessing the documents-------
+    # -----------Loading and preprocessing the documents-------
     docs, index, document_norms = create_index_from_folder(pipeline)
-# ---------------------------------------------------------
-# -----------Searching for the query-----------------------
+    # ---------------------------------------------------------
+    # -----------Searching for the query-----------------------
     query = "nůž OR dýka"
     model = "boolean"
     k = 3
@@ -174,10 +178,10 @@ def main():
     index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
     # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
     model = "tf-idf"
     query = "Kdo je daedrický princ?"
-    field = "" # search in all fields
+    field = ""  # search in all fields
     k = 3
 
     search(query, field, k, index, model, document_norms, docs)
@@ -186,32 +190,43 @@ def main():
 
     search(query, field, k, index, model, document_norms, docs)
 
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
     query = "Příchod lidí a Noc Slz"
-    field = "table_of_contents" # search in the table of contents
+    field = "table_of_contents"  # search in the table of contents
     k = 3
 
     search(query, field, k, index, model, document_norms, docs)
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
     query = "dýka"
-    field = "content" # search in the content
+    field = "content"  # search in the content
     k = 5
 
     search(query, field, k, index, model, document_norms, docs)
 
-    index, document_norms, docs = create_document({"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"}, index, document_norms, docs, pipeline)
+    index, document_norms, docs = create_document(
+        {"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"}, index,
+        document_norms, docs, pipeline)
     query = "dýka"
     model = "tf-idf"
     k = 3
 
     search(query, "content", k, index, model, document_norms, docs)
 
-
     index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
     search(query, "content", k, index, model, document_norms, docs)
+
+    # ---------------------------------------------------------
+    query = "Keening"
+
+    search(query, "title", k, index, model, document_norms, docs)
+
+    index, document_norms, docs = update_document(376, "Keening prdel", "title", index, document_norms, docs, pipeline)
+    search(query, "title", k, index, model, document_norms, docs)
+
+    index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
+    search(query, "title", k, index, model, document_norms, docs)
 
 if __name__ == "__main__":
     start_time = time.time()
     main()
     print("--- %s seconds ---" % (time.time() - start_time))
-
