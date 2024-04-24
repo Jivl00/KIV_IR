@@ -49,11 +49,11 @@ def create_index(docs):
     """
     index = {}
     document_norms = {}
+    N = len(docs)
     for field in fields:
         index_field = defaultdict(lambda: {"idf": 0, "df": 0, "docIDs": {}})  # default value of int is 0
         # document norms are needed for cosine similarity
         document_field_norms = defaultdict(int)  # default value of int is 0
-        N = len(docs)
         for doc in docs:
             for token in set(doc[field]):
                 index_field[token]["df"] += 1  # count the number of documents containing the word
@@ -115,6 +115,7 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
     print("Removing document \"{}\" with id {}".format(docs["docs"][doc_id]["title"], doc_id))
     docs["unused_ids"].append(doc_id)
     preprocessed_doc = preprocessing_pipelines.preprocess(docs["docs"][doc_id], doc_id, pipeline)
+    N = len(docs["docs"]) - 1  # number of documents without the removed one
     for field in fields:
         for token in index[field]:
             # Remove the document from the index
@@ -124,7 +125,6 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
             # Remove the document from the document norms
             del document_norms[field][doc_id]
         # Update the idf and df
-        N = len(docs["docs"]) - 1  # number of documents without the removed one
         tokens = preprocessed_doc[field]
         for token in set(tokens):
             old_idf = index[field][token]["idf"]
@@ -146,4 +146,50 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
                 index[field].pop(token)
     # Remove the document from the cache
     docs["docs"].pop(doc_id)
+    return index, document_norms, docs
+
+def create_document(doc, index, document_norms, docs, pipeline):
+    """
+    Adds the document to the index
+    :param doc:  document to add - dictionary with fields: title, table_of_contents (list), infobox, content
+    :param index:  inverted index
+    :param document_norms:  norms of the documents
+    :param docs:  list of documents
+    :return:  updated index and document norms and docs
+    """
+    unused_ids = docs["unused_ids"]
+    if len(unused_ids) > 0:
+        doc_id = docs["unused_ids"].pop()
+    else:
+        doc_id = docs["max_id"] + 1
+        docs["max_id"] = doc_id
+    print("Adding document \"{}\" with id {}".format(doc["title"], doc_id))
+    doc["lang_all"] = lang_detector1.predict([doc["content"]])[0]
+    doc["lang_cz_sk"] = lang_detector2.predict([doc["content"]])[0]
+    docs["docs"][doc_id] = doc
+    preprocessed_doc = preprocessing_pipelines.preprocess(doc, doc_id, pipeline)
+    N = len(docs["docs"])  # number of documents
+    for field in fields:
+        tokens = preprocessed_doc[field]
+        for token in set(tokens):
+            docs_with_token = set(index[field][token]["docIDs"].keys())
+            if token not in index[field]:
+                index[field][token] = {"idf": 0, "df": 0, "docIDs": {}}
+            # Update the idf and df
+            index[field][token]["df"] += 1
+            df = index[field][token]["df"]
+            old_idf = index[field][token]["idf"]
+            idf = np.log10(N / float(df))
+            index[field][token]["idf"] = idf
+            # Update the tf-idf and norms of the documents affected by the change
+            for docID in docs_with_token:
+                old_tf_idf = index[field][token]["docIDs"][docID]
+                index[field][token]["docIDs"][docID] *= (idf / old_idf)
+                document_norms[field][docID] = np.sqrt(
+                    document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
+                                index[field][token]["docIDs"][docID] ** 2))
+            tf = tokens.count(token)
+            tf_idf = (1 + np.log10(tf)) * idf
+            index[field][token]["docIDs"][doc_id] = tf_idf
+            document_norms[field][doc_id] = np.sqrt(tf_idf ** 2)
     return index, document_norms, docs

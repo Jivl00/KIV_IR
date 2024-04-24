@@ -6,7 +6,7 @@ import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
 from boolean_parser import infix_to_postfix
-from crud import load_documents, create_index, fields, create_index_from_folder, delete_document
+from crud import load_documents, create_index, fields, create_index_from_folder, delete_document, create_document
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
@@ -186,11 +186,22 @@ def main():
 
     search(query, field, k, index, model, document_norms, docs)
 # ---------------------------------------------------------
-    query = "nůž a dýka"
+    query = "dýka"
     field = "content" # search in the content
     k = 5
 
     search(query, field, k, index, model, document_norms, docs)
+
+    index, document_norms, docs = create_document({"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"}, index, document_norms, docs, pipeline)
+    query = "dýka"
+    model = "tf-idf"
+    k = 3
+
+    search(query, "content", k, index, model, document_norms, docs)
+
+
+    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    search(query, "content", k, index, model, document_norms, docs)
 
 if __name__ == "__main__":
     start_time = time.time()
