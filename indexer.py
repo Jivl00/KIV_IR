@@ -60,6 +60,8 @@ def calculate_k_best_scores(scores, k):
     :param k: number of best scores to return
     :return: k best scores
     """
+    if k > len(scores):
+        k = len(scores)
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
 def boolean_search(query, field, index, docs):
@@ -124,11 +126,15 @@ def search(query, field, k, index, model, document_norms, docs):
     if field == "": # search in all fields
         print("Searching for the query: {} in all fields".format(query_orig))
         score_by_field = {}
+        docs_found = set()
         for field in fields: # search in all fields
             query_tf_idf, query_norm = query_prep(query, index[field])
             scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
-            k_best_scores = calculate_k_best_scores(scores, k)
+            docs_found.update(scores.keys())
+            k_best_scores = calculate_k_best_scores(scores, k*2)
             score_by_field[field] = k_best_scores
+
+        print("Found", len(docs_found), "documents in total")
         print("Top", k, "documents:")
         field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5} # weights for the fields
         k_best_scores = {}
@@ -148,6 +154,7 @@ def search(query, field, k, index, model, document_norms, docs):
         query_tf_idf, query_norm = query_prep(query, index[field])
         scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
         k_best_scores = calculate_k_best_scores(scores, k)
+        print("Found", len(scores), "documents in total")
         print("Top", k, "documents:")
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
@@ -182,7 +189,7 @@ def main():
 # ---------------------------------------------------------
     query = "Příchod lidí a Noc Slz"
     field = "table_of_contents" # search in the table of contents
-    k = 2
+    k = 3
 
     search(query, field, k, index, model, document_norms, docs)
 # ---------------------------------------------------------
