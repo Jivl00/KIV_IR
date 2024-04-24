@@ -163,6 +163,7 @@ def create_document(doc, index, document_norms, docs, pipeline):
     else:
         doc_id = docs["max_id"] + 1
         docs["max_id"] = doc_id
+    doc_id = str(doc_id)
     print("Adding document \"{}\" with id {}".format(doc["title"], doc_id))
     doc["lang_all"] = lang_detector1.predict([doc["content"]])[0]
     doc["lang_cz_sk"] = lang_detector2.predict([doc["content"]])[0]
@@ -265,6 +266,8 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
             tf = preprocessed_text[field].count(token)
             tf_idf = (1 + np.log10(tf)) * idf
             index[field][token]["docIDs"][doc_id] = tf_idf
+            if doc_id not in document_norms[field]:
+                document_norms[field][doc_id] = 0
             old_doc_norm = document_norms[field][doc_id]
             document_norms[field][doc_id] = np.sqrt(old_doc_norm ** 2 + (tf_idf ** 2))
 

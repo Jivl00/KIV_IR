@@ -175,7 +175,7 @@ def main():
     k = 3
 
     search(query, "title", k, index, model, document_norms, docs)
-    index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
+    # index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
     # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
     # ---------------------------------------------------------
@@ -186,7 +186,7 @@ def main():
 
     search(query, field, k, index, model, document_norms, docs)
 
-    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
 
     search(query, field, k, index, model, document_norms, docs)
 
@@ -212,7 +212,7 @@ def main():
 
     search(query, "content", k, index, model, document_norms, docs)
 
-    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
     search(query, "content", k, index, model, document_norms, docs)
 
     # ---------------------------------------------------------
@@ -220,7 +220,7 @@ def main():
 
     search(query, "title", k, index, model, document_norms, docs)
 
-    index, document_norms, docs = update_document(376, "Keening prdel", "title", index, document_norms, docs, pipeline)
+    index, document_norms, docs = update_document(376, ["Keening prdel"], "table_of_contents", index, document_norms, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
 
     index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
