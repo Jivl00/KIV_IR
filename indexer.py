@@ -164,7 +164,7 @@ def main():
     k = 3
 
     search(query, "title", k, index, model, document_norms, docs)
-    delete_document(index, document_norms, 850, docs, pipeline)
+    index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
     # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
 # ---------------------------------------------------------
@@ -174,6 +174,11 @@ def main():
     k = 3
 
     search(query, field, k, index, model, document_norms, docs)
+
+    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+
+    search(query, field, k, index, model, document_norms, docs)
+
 # ---------------------------------------------------------
     query = "Příchod lidí a Noc Slz"
     field = "table_of_contents" # search in the table of contents

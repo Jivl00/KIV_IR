@@ -114,6 +114,7 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
     doc_id = str(doc_id)
     print("Removing document \"{}\" with id {}".format(docs["docs"][doc_id]["title"], doc_id))
     docs["unused_ids"].append(doc_id)
+    preprocessed_doc = preprocessing_pipelines.preprocess(docs["docs"][doc_id], doc_id, pipeline)
     for field in fields:
         for token in index[field]:
             # Remove the document from the index
@@ -124,7 +125,7 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
             del document_norms[field][doc_id]
         # Update the idf and df
         N = len(docs["docs"]) - 1  # number of documents without the removed one
-        tokens = pipeline(docs["docs"][doc_id][field])
+        tokens = preprocessed_doc[field]
         for token in set(tokens):
             old_idf = index[field][token]["idf"]
             index[field][token]["df"] -= 1
