@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import web_crawler
 
 import numpy as np
 from collections import defaultdict
@@ -83,9 +84,9 @@ def create_index_from_folder(pipeline, data_folder="data", index_file="index.jso
     :param index_file:  path to the index file
     :param document_norms_file:  path to the document norms file
     :param save_to_file:  whether to save the index to a file
-    :return: None (saves the index to a file)
+    :return: list of documents, inverted index, document norms
     """
-    docs = load_documents(data_folder)
+    docs = load_documents(data_folder, cache_name="document_cache2.json")
     preprocessing_pipelines.clear_keywords_cache()
     preped_docs = []
     for doc_id in docs["docs"].keys():
@@ -99,6 +100,31 @@ def create_index_from_folder(pipeline, data_folder="data", index_file="index.jso
         with open(document_norms_file, "w", encoding="utf-8") as file:  # save the document norms to a file
             json.dump(dict(document_norms), file, ensure_ascii=False, indent=4)
         print("Index created and saved to a file")
+    return docs, index, document_norms
+
+
+def create_index_from_url(seed_url, pipeline, data_folder="data", index_file="index.json",
+                          document_norms_file="document_norms.json",
+                          save_to_file=True):
+    """
+    Creates an inverted index for the documents crawled from the seed URL
+    :param seed_url: URL of the seed page
+    :param pipeline:  preprocessing pipeline
+    :param data_folder:  path to the data folder
+    :param index_file:  path to the index file
+    :param document_norms_file:  path to the document norms file
+    :param save_to_file:  whether to save the index to a file
+    :return:  list of documents, inverted index, document norms
+    """
+    topics_refs = web_crawler.crawl(seed_url, 1)
+
+    if not os.path.exists(data_folder):
+        os.makedirs(data_folder)
+
+    web_crawler.scrape_urls(topics_refs, folder=data_folder, wait_time=1)
+    docs, index, document_norms = create_index_from_folder(pipeline, data_folder,
+                                                           index_file, document_norms_file, save_to_file)
+
     return docs, index, document_norms
 
 
@@ -140,13 +166,14 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
                     index[field][token]["docIDs"][docID] *= (idf / old_idf)
                     document_norms[field][docID] = np.sqrt(
                         document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                                    index[field][token]["docIDs"][docID] ** 2))
+                                index[field][token]["docIDs"][docID] ** 2))
             else:
                 # Remove the token from the index if it's not in any document
                 index[field].pop(token)
     # Remove the document from the cache
     docs["docs"].pop(doc_id)
     return index, document_norms, docs
+
 
 def create_document(doc, index, document_norms, docs, pipeline):
     """
@@ -188,7 +215,7 @@ def create_document(doc, index, document_norms, docs, pipeline):
                 index[field][token]["docIDs"][docID] *= (idf / old_idf)
                 document_norms[field][docID] = np.sqrt(
                     document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                                index[field][token]["docIDs"][docID] ** 2))
+                            index[field][token]["docIDs"][docID] ** 2))
             tf = tokens.count(token)
             tf_idf = (1 + np.log10(tf)) * idf
             index[field][token]["docIDs"][doc_id] = tf_idf
@@ -215,15 +242,16 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
     preprocessed_text = preprocessing_pipelines.preprocess(docs["docs"][doc_id], doc_id, pipeline)
     N = len(docs["docs"])  # number of documents
     for token in list(index[field].keys()):
-        if doc_id in index[field][token]["docIDs"]: # if the token is already associated with the document
-            if token in preprocessed_text[field]: # if the token is in the new text
+        if doc_id in index[field][token]["docIDs"]:  # if the token is already associated with the document
+            if token in preprocessed_text[field]:  # if the token is in the new text
                 # df has not changed
                 old_tf_idf = index[field][token]["docIDs"][doc_id]
                 tf = preprocessed_text[field].count(token)
-                tf_idf = (1 + np.log10(tf)) * index[field][token]["idf"] # compute new tf-idf
+                tf_idf = (1 + np.log10(tf)) * index[field][token]["idf"]  # compute new tf-idf
                 index[field][token]["docIDs"][doc_id] = tf_idf
-                document_norms[field][doc_id] = np.sqrt(document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2) + (tf_idf ** 2))
-            else: # if the token is not in the new text - it has been removed
+                document_norms[field][doc_id] = np.sqrt(
+                    document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2) + (tf_idf ** 2))
+            else:  # if the token is not in the new text - it has been removed
                 old_tf_idf = index[field][token]["docIDs"].pop(doc_id)
                 document_norms[field][doc_id] = np.sqrt(document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2))
                 index[field][token]["df"] -= 1
@@ -236,12 +264,13 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
                 index[field][token]["idf"] = idf
                 for docID in index[field][token]["docIDs"]:
                     old_tf_idf = index[field][token]["docIDs"][docID]
-                    index[field][token]["docIDs"][docID] *= (idf / old_idf) # update tf-idf
+                    index[field][token]["docIDs"][docID] *= (idf / old_idf)  # update tf-idf
                     # update document norms
-                    document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (index[field][token]["docIDs"][docID] ** 2))
+                    document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
+                                index[field][token]["docIDs"][docID] ** 2))
 
-        else: # if the token is not associated with the document
-            if token in preprocessed_text[field]: # if the token is in the new text
+        else:  # if the token is not associated with the document
+            if token in preprocessed_text[field]:  # if the token is in the new text
                 index[field][token]["df"] += 1
                 df = index[field][token]["df"]
                 old_idf = index[field][token]["idf"]
@@ -254,10 +283,11 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
                 for docID in index[field][token]["docIDs"]:
                     old_tf_idf = index[field][token]["docIDs"][docID]
                     index[field][token]["docIDs"][docID] *= (idf / old_idf)
-                    document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (index[field][token]["docIDs"][docID] ** 2))
+                    document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
+                                index[field][token]["docIDs"][docID] ** 2))
 
     for token in preprocessed_text[field]:
-        if token not in index[field]: # new word
+        if token not in index[field]:  # new word
             index[field][token] = {"idf": 0, "df": 0, "docIDs": {}}
             index[field][token]["df"] += 1
             df = index[field][token]["df"]
@@ -271,5 +301,16 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
             old_doc_norm = document_norms[field][doc_id]
             document_norms[field][doc_id] = np.sqrt(old_doc_norm ** 2 + (tf_idf ** 2))
 
-
     return index, document_norms, docs
+
+def create_document_from_url(url, index, document_norms, docs, pipeline):
+    """
+    Creates a document from the URL
+    :param url:  URL of the document
+    :param index:  inverted index
+    :param document_norms:  norms of the documents
+    :param docs:  list of documents
+    :return:  updated index and document norms and docs
+    """
+    doc = web_crawler.scrape_url(url)
+    return create_document(doc, index, document_norms, docs, pipeline)

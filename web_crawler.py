@@ -33,12 +33,13 @@ def crawl(seed_url, wait_time=1):
     return topics_refs
 
 
-def scrape_urls(topics_refs, folder, wait_time=1):
+def scrape_urls(topics_refs, folder, wait_time=1, return_json=False):
     """
     Scrape the URLs and save the content to JSON files
     :param topics_refs:  list of topics references
     :param folder:  folder to save the JSON files
     :param wait_time:  time to wait between requests - politeness
+    :param return_json:  if True, return the JSON content
     :return:  None
     """
     unique_topics = set()  # set of unique topics URLs to avoid duplicates
@@ -94,6 +95,8 @@ def scrape_urls(topics_refs, folder, wait_time=1):
             }
             # remove quotes from title, replace / and : with _
             title[0] = title[0].replace('"', '').replace('/', '_').replace(':', '_')
+            if return_json:  # if return_json is True, return the JSON content
+                return json_output
 
             with open(folder + '/' + title[0] + '.json', 'w', encoding="utf-8") as f:  # save the JSON file
                 json.dump(json_output, f, ensure_ascii=False, indent=4)
@@ -102,6 +105,18 @@ def scrape_urls(topics_refs, folder, wait_time=1):
             print('Error: ' + topic)
             print('Exception: ' + str(e))
         time.sleep(wait_time)  # politeness
+
+def scrape_url(url):
+    """
+    Scrape the URL and return the content as JSON
+    :param url:  URL to scrape
+    :return:  JSON content
+    """
+    topic = url.replace('https://theelderscrolls.fandom.com', '')  # remove the base URL
+    json_output = scrape_urls([topic], folder='', return_json=True)  # get the JSON content
+
+    return json_output
+
 
 
 def main():

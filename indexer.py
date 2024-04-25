@@ -7,7 +7,7 @@ from collections import defaultdict
 import preprocessing_pipelines
 from boolean_parser import infix_to_postfix
 from crud import load_documents, create_index, fields, create_index_from_folder, delete_document, create_document, \
-    update_document
+    update_document, create_index_from_url, create_document_from_url
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
@@ -225,6 +225,13 @@ def main():
 
     index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
+
+    # ---------------------------------------------------------
+    # seed_url = 'https://theelderscrolls.fandom.com/cs/wiki/Speci%C3%A1ln%C3%AD:V%C5%A1echny_str%C3%A1nky?from=%22%C5%A0%C3%ADlenci%22+z+Pl%C3%A1n%C3%AD'
+    # docs, index, document_norms = create_index_from_folder(pipeline, data_folder="data2", index_file="index2.json", document_norms_file="document_norms2.json")
+    # index, document_norms, docs = create_document_from_url("/cs/wiki/Železná_dýka", index, document_norms, docs, pipeline)
+    # print(docs["max_id"])
+    # print(docs["docs"]["19"])
 
 if __name__ == "__main__":
     start_time = time.time()
