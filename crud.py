@@ -52,20 +52,24 @@ def create_index(docs):
     document_norms = {}
     N = len(docs)
     for field in fields:
-        index_field = defaultdict(lambda: {"idf": 0, "df": 0, "docIDs": {}})  # default value of int is 0
+        index_field = defaultdict(lambda: {"idf": 0, "df": 0, "docIDs": defaultdict( lambda: {"tf-idf": 0, "pos": []})})
         # document norms are needed for cosine similarity
         document_field_norms = defaultdict(int)  # default value of int is 0
         for doc in docs:
-            for token in set(doc[field]):
-                index_field[token]["df"] += 1  # count the number of documents containing the word
-                tf = doc[field].count(token)  # term frequency
-                index_field[token]["docIDs"][doc["id"]] = 1 + np.log10(tf)  # compute tf
+            seen = set()
+            for pos, token in enumerate(doc[field]):
+                if token not in seen:
+                    seen.add(token)
+                    index_field[token]["df"] += 1  # count the number of documents containing the word
+                    tf = doc[field].count(token)  # term frequency
+                    index_field[token]["docIDs"][doc["id"]]["tf-idf"] = 1 + np.log10(tf)  # compute tf
+                index_field[token]["docIDs"][doc["id"]]["pos"].append(pos)
 
         for token in index_field:
             index_field[token]["idf"] = np.log10(N / float(index_field[token]["df"]))  # compute idf
             for docID in index_field[token]["docIDs"]:
-                index_field[token]["docIDs"][docID] *= index_field[token]["idf"]  # compute tf-idf
-                document_field_norms[docID] += (index_field[token]["docIDs"][docID]) ** 2
+                index_field[token]["docIDs"][docID]["tf-idf"] *= index_field[token]["idf"]  # compute tf-idf
+                document_field_norms[docID] += (index_field[token]["docIDs"][docID]["tf-idf"]) ** 2
 
         document_field_norms = {docID: np.sqrt(document_field_norms[docID]) for docID in document_field_norms}
         index[field] = index_field
@@ -96,9 +100,9 @@ def create_index_from_folder(pipeline, data_folder="data", index_file="index.jso
 
     if save_to_file:
         with open(index_file, "w", encoding="utf-8") as file:  # save the index to a file
-            json.dump(dict(index), file, ensure_ascii=False, indent=4)
+            json.dump(dict(index), file, ensure_ascii=False, indent=1)
         with open(document_norms_file, "w", encoding="utf-8") as file:  # save the document norms to a file
-            json.dump(dict(document_norms), file, ensure_ascii=False, indent=4)
+            json.dump(dict(document_norms), file, ensure_ascii=False, indent=1)
         print("Index created and saved to a file")
     return docs, index, document_norms
 
@@ -162,11 +166,11 @@ def delete_document(index, document_norms, doc_id, docs, pipeline):
                 docs_with_token = set(index[field][token]["docIDs"].keys())
                 # Update the document norms
                 for docID in docs_with_token:
-                    old_tf_idf = index[field][token]["docIDs"][docID]
-                    index[field][token]["docIDs"][docID] *= (idf / old_idf)
+                    old_tf_idf = index[field][token]["docIDs"][docID]["tf-idf"]
+                    index[field][token]["docIDs"][docID]["tf-idf"] *= (idf / old_idf)
                     document_norms[field][docID] = np.sqrt(
                         document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                                index[field][token]["docIDs"][docID] ** 2))
+                                index[field][token]["docIDs"][docID]["tf-idf"] ** 2))
             else:
                 # Remove the token from the index if it's not in any document
                 index[field].pop(token)
@@ -202,7 +206,7 @@ def create_document(doc, index, document_norms, docs, pipeline):
         for token in set(tokens):
             docs_with_token = set(index[field][token]["docIDs"].keys())
             if token not in index[field]:
-                index[field][token] = {"idf": 0, "df": 0, "docIDs": {}}
+                index[field][token] = {"idf": 0, "df": 0, "docIDs": defaultdict( lambda: {"tf-idf": 0, "pos": []})}
             # Update the idf and df
             index[field][token]["df"] += 1
             df = index[field][token]["df"]
@@ -211,14 +215,15 @@ def create_document(doc, index, document_norms, docs, pipeline):
             index[field][token]["idf"] = idf
             # Update the tf-idf and norms of the documents affected by the change
             for docID in docs_with_token:
-                old_tf_idf = index[field][token]["docIDs"][docID]
-                index[field][token]["docIDs"][docID] *= (idf / old_idf)
+                old_tf_idf = index[field][token]["docIDs"][docID]["tf-idf"]
+                index[field][token]["docIDs"][docID]["tf-idf"] *= (idf / old_idf)
                 document_norms[field][docID] = np.sqrt(
                     document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                            index[field][token]["docIDs"][docID] ** 2))
+                            index[field][token]["docIDs"][docID]["tf-idf"] ** 2))
             tf = tokens.count(token)
             tf_idf = (1 + np.log10(tf)) * idf
-            index[field][token]["docIDs"][doc_id] = tf_idf
+            index[field][token]["docIDs"][doc_id]["tf-idf"] = tf_idf
+            index[field][token]["docIDs"][doc_id]["pos"] = [pos for pos, t in enumerate(tokens) if t == token]
             if doc_id not in document_norms[field]:
                 document_norms[field][doc_id] = 0
             document_norms[field][doc_id] = np.sqrt(document_norms[field][doc_id] ** 2 + (tf_idf ** 2))
@@ -245,14 +250,16 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
         if doc_id in index[field][token]["docIDs"]:  # if the token is already associated with the document
             if token in preprocessed_text[field]:  # if the token is in the new text
                 # df has not changed
-                old_tf_idf = index[field][token]["docIDs"][doc_id]
+                old_tf_idf = index[field][token]["docIDs"][doc_id]["tf-idf"]
                 tf = preprocessed_text[field].count(token)
                 tf_idf = (1 + np.log10(tf)) * index[field][token]["idf"]  # compute new tf-idf
-                index[field][token]["docIDs"][doc_id] = tf_idf
+                index[field][token]["docIDs"][doc_id]["tf-idf"] = tf_idf
+                index[field][token]["docIDs"][doc_id]["pos"] = [pos for pos, t in enumerate(preprocessed_text[field]) if t == token]
                 document_norms[field][doc_id] = np.sqrt(
                     document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2) + (tf_idf ** 2))
             else:  # if the token is not in the new text - it has been removed
-                old_tf_idf = index[field][token]["docIDs"].pop(doc_id)
+                old_tf_idf = index[field][token]["docIDs"][doc_id]["tf-idf"]
+                index[field][token]["docIDs"].pop(doc_id)
                 document_norms[field][doc_id] = np.sqrt(document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2))
                 index[field][token]["df"] -= 1
                 if index[field][token]["df"] == 0:
@@ -263,11 +270,11 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
                 idf = np.log10(N / float(df))
                 index[field][token]["idf"] = idf
                 for docID in index[field][token]["docIDs"]:
-                    old_tf_idf = index[field][token]["docIDs"][docID]
-                    index[field][token]["docIDs"][docID] *= (idf / old_idf)  # update tf-idf
+                    old_tf_idf = index[field][token]["docIDs"][docID]["tf-idf"]
+                    index[field][token]["docIDs"][docID]["tf-idf"] *= (idf / old_idf)  # update tf-idf
                     # update document norms
                     document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                                index[field][token]["docIDs"][docID] ** 2))
+                                index[field][token]["docIDs"][docID]["tf-idf"] ** 2))
 
         else:  # if the token is not associated with the document
             if token in preprocessed_text[field]:  # if the token is in the new text
@@ -278,24 +285,26 @@ def update_document(doc_id, replacement, field, index, document_norms, docs, pip
                 index[field][token]["idf"] = idf
                 tf = preprocessed_text[field].count(token)
                 tf_idf = (1 + np.log10(tf)) * idf
-                index[field][token]["docIDs"][doc_id] = tf_idf
+                index[field][token]["docIDs"][doc_id]["tf-idf"] = tf_idf
+                index[field][token]["docIDs"][doc_id]["pos"] = [pos for pos, t in enumerate(preprocessed_text[field]) if t == token]
                 document_norms[field][doc_id] = np.sqrt(tf_idf ** 2)
                 for docID in index[field][token]["docIDs"]:
-                    old_tf_idf = index[field][token]["docIDs"][docID]
-                    index[field][token]["docIDs"][docID] *= (idf / old_idf)
+                    old_tf_idf = index[field][token]["docIDs"][docID]["tf-idf"]
+                    index[field][token]["docIDs"][docID]["tf-idf"] *= (idf / old_idf)
                     document_norms[field][docID] = np.sqrt(document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
-                                index[field][token]["docIDs"][docID] ** 2))
+                                index[field][token]["docIDs"][docID]["tf-idf"] ** 2))
 
-    for token in preprocessed_text[field]:
+    for token in set(preprocessed_text[field]):
         if token not in index[field]:  # new word
-            index[field][token] = {"idf": 0, "df": 0, "docIDs": {}}
+            index[field][token] = {"idf": 0, "df": 0, "docIDs": defaultdict( lambda: {"tf-idf": 0, "pos": []})}
             index[field][token]["df"] += 1
             df = index[field][token]["df"]
             idf = np.log10(N / float(df))
             index[field][token]["idf"] = idf
             tf = preprocessed_text[field].count(token)
             tf_idf = (1 + np.log10(tf)) * idf
-            index[field][token]["docIDs"][doc_id] = tf_idf
+            index[field][token]["docIDs"][doc_id]["tf-idf"] = tf_idf
+            index[field][token]["docIDs"][doc_id]["pos"] = [pos for pos, t in enumerate(preprocessed_text[field]) if t == token]
             if doc_id not in document_norms[field]:
                 document_norms[field][doc_id] = 0
             old_doc_norm = document_norms[field][doc_id]

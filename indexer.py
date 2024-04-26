@@ -51,7 +51,7 @@ def calculate_scores(query, query_norm, index, document_norms, field):
             for docID in index[field][word]["docIDs"]:
                 if docID not in scores:
                     scores[docID] = 0
-                scores[docID] += query[word] * index[field][word]["docIDs"][docID]
+                scores[docID] += query[word] * index[field][word]["docIDs"][docID]["tf-idf"]
     for docID in scores:
         scores[docID] /= (query_norm * document_norms[field][docID])  # cosine similarity
     return scores
@@ -175,7 +175,7 @@ def main():
     k = 3
 
     search(query, "title", k, index, model, document_norms, docs)
-    # index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
+    index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
     # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
     # ---------------------------------------------------------
@@ -186,7 +186,7 @@ def main():
 
     search(query, field, k, index, model, document_norms, docs)
 
-    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
 
     search(query, field, k, index, model, document_norms, docs)
 
@@ -212,7 +212,7 @@ def main():
 
     search(query, "content", k, index, model, document_norms, docs)
 
-    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
     search(query, "content", k, index, model, document_norms, docs)
 
     # ---------------------------------------------------------
@@ -220,18 +220,19 @@ def main():
 
     search(query, "title", k, index, model, document_norms, docs)
 
-    index, document_norms, docs = update_document(376, ["Keening prdel"], "table_of_contents", index, document_norms, docs, pipeline)
+    index, document_norms, docs = update_document(376, "Keening prdel", "title", index, document_norms, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
+
 
     index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
     search(query, "title", k, index, model, document_norms, docs)
 
     # ---------------------------------------------------------
-    # seed_url = 'https://theelderscrolls.fandom.com/cs/wiki/Speci%C3%A1ln%C3%AD:V%C5%A1echny_str%C3%A1nky?from=%22%C5%A0%C3%ADlenci%22+z+Pl%C3%A1n%C3%AD'
-    # docs, index, document_norms = create_index_from_folder(pipeline, data_folder="data2", index_file="index2.json", document_norms_file="document_norms2.json")
-    # index, document_norms, docs = create_document_from_url("/cs/wiki/Železná_dýka", index, document_norms, docs, pipeline)
-    # print(docs["max_id"])
-    # print(docs["docs"]["19"])
+    seed_url = 'https://theelderscrolls.fandom.com/cs/wiki/Speci%C3%A1ln%C3%AD:V%C5%A1echny_str%C3%A1nky?from=%22%C5%A0%C3%ADlenci%22+z+Pl%C3%A1n%C3%AD'
+    docs, index, document_norms = create_index_from_folder(pipeline, data_folder="data2", index_file="index2.json", document_norms_file="document_norms2.json")
+    index, document_norms, docs = create_document_from_url("/cs/wiki/Železná_dýka", index, document_norms, docs, pipeline)
+    print(docs["max_id"])
+    print(docs["docs"]["19"])
 
 if __name__ == "__main__":
     start_time = time.time()
