@@ -1,4 +1,3 @@
-import json
 import time
 # TODO pickle
 
@@ -10,11 +9,11 @@ from Index import Index
 
 # PIPELINE
 pipeline = preprocessing_pipelines.pipeline_stemmer
+# pipeline = preprocessing_pipelines.pipeline_lemmatizer
 
 fields = ["title", "table_of_contents", "infobox", "content"]
 
 
-# pipeline = preprocessing_pipelines.pipeline_lemmatizer
 
 
 def query_prep(query, index):
@@ -28,7 +27,7 @@ def query_prep(query, index):
     for word in set(query):
         tf = query.count(word)
         tf = 1 + np.log10(tf)
-        if word in index:
+        if word in index.keys():
             query_tf_idf[word] = tf * index[word]["idf"]
         else:
             query_tf_idf[word] = 0
@@ -36,25 +35,24 @@ def query_prep(query, index):
     return query_tf_idf, query_norm
 
 
-def calculate_scores(query, query_norm, index, document_norms, field):
+def calculate_scores(query, query_norm, index, field):
     """
     Calculates the scores for the documents based on the query
     :param query:  tf-idf of the query
     :param query_norm: norm of the query
     :param index:  index of the documents
-    :param document_norms: norms of the documents
     :param field: field to search in
     :return:  scores of the documents
     """
     scores = defaultdict(float)
     for word in query:
-        if word in index[field]:
-            for docID in index[field][word]["docIDs"]:
+        if word in index.index[field]:
+            for docID in index.index[field][word]["docIDs"]:
                 if docID not in scores:
                     scores[docID] = 0
-                scores[docID] += query[word] * index[field][word]["docIDs"][docID]["tf-idf"]
+                scores[docID] += query[word] * index.index[field][word]["docIDs"][docID]["tf-idf"]
     for docID in scores:
-        scores[docID] /= (query_norm * document_norms[field][docID])  # cosine similarity
+        scores[docID] /= (query_norm * index.document_norms[field][docID])  # cosine similarity
     return scores
 
 
@@ -70,25 +68,25 @@ def calculate_k_best_scores(scores, k):
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
 
-def boolean_search(query, field, index, docs):
+def boolean_search(query, field, index):
     print("Searching for the query: {} using the boolean model".format(query))
     postfix_query = infix_to_postfix(query)
     print("Postfix query:", postfix_query)
     stack = []
-    max_id = docs["max_id"]
-    unused_ids = docs["unused_ids"]
+    max_id = index.docs["max_id"]
+    unused_ids = index.docs["unused_ids"]
     for token in postfix_query:
         if token not in ["AND", "OR", "NOT"]:
             token = pipeline(token)[0]
             if field == "":
                 all_docIDs = set()
                 for f in fields:
-                    if token in index[f]:
-                        all_docIDs.update(index[f][token]["docIDs"].keys())
+                    if token in index.index[f]:
+                        all_docIDs.update(index.index[f][token]["docIDs"].keys())
                 stack.append(list(all_docIDs))
             else:
-                if token in index[field]:
-                    stack.append(list(index[field][token]["docIDs"].keys()))
+                if token in index.index[field]:
+                    stack.append(list(index.index[field][token]["docIDs"].keys()))
                 else:
                     stack.append([])
         else:
@@ -106,24 +104,23 @@ def boolean_search(query, field, index, docs):
     print("Found", len(result), "documents:")
     for docID in result:
         print("Document", docID)
-        print("Title:", docs["docs"][str(docID)]["title"])
+        print("Title:", index.docs["docs"][str(docID)]["title"])
         print("\n")
 
 
-def search(query, field, k, index, model, document_norms, docs):
+def search(query, field, k, index, model):
     """
     Searches for the query in the index and prints the k best documents
     :param query:  query to search for
     :param field:  field to search in, if empty search in all fields
     :param k: number of best documents to return
     :param index:  index of the documents
-    :param document_norms:  norms of the documents
-    :param docs:  list of documents
+    :param model:  model to use for the search
     :return: None (prints the k best documents)
     """
     print("=" * 50)
     if model == "boolean":
-        boolean_search(query, field, index, docs)
+        boolean_search(query, field, index)
         return None
     query_orig = query
     query = pipeline(query)
@@ -132,8 +129,8 @@ def search(query, field, k, index, model, document_norms, docs):
         score_by_field = {}
         docs_found = set()
         for field in fields:  # search in all fields
-            query_tf_idf, query_norm = query_prep(query, index[field])
-            scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
+            query_tf_idf, query_norm = query_prep(query, index.index[field])
+            scores = calculate_scores(query_tf_idf, query_norm, index, field)
             docs_found.update(scores.keys())
             k_best_scores = calculate_k_best_scores(scores, k * 2)
             score_by_field[field] = k_best_scores
@@ -150,27 +147,26 @@ def search(query, field, k, index, model, document_norms, docs):
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs["docs"][str(docID)]["title"])
+            print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
 
     else:  # search in the specified field
         print("Searching for the query: {} in the field {}".format(query_orig, field))
-        query_tf_idf, query_norm = query_prep(query, index[field])
-        scores = calculate_scores(query_tf_idf, query_norm, index, document_norms, field)
+        query_tf_idf, query_norm = query_prep(query, index.index[field])
+        scores = calculate_scores(query_tf_idf, query_norm, index, field)
         k_best_scores = calculate_k_best_scores(scores, k)
         print("Found", len(scores), "documents in total")
         print("Top", k, "documents:")
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
-            print("Title:", docs["docs"][str(docID)]["title"])
+            print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
         # proximity_search(query, docs, index, field, k_best_scores, 7)
 
-def proximity_search(query, docs, index, field, k_best_scores, proximity):
+def proximity_search(query, index, field, k_best_scores, proximity):
     """
     Searches for the proximity query in the documents and prints the k best documents
     :param query:  proximity query to search for
-    :param docs:  list of documents
     :param index:  index of the documents\
     :param field:  field to search in
     :param k_best_scores:  k best documents
@@ -181,14 +177,14 @@ def proximity_search(query, docs, index, field, k_best_scores, proximity):
         print("Proximity search for the query: {} in the field {} in the document {}".format(query, field, docID))
         positions = []
         for word in query:
-            if word not in index[field]:
+            if word not in index.index[field]:
                 print("Word", word, "not found in the index")
                 break
-            elif docID not in index[field][word]["docIDs"]:
+            elif docID not in index.index[field][word]["docIDs"]:
                 print("Word", word, "not found in the document")
                 break
             else:
-                positions.append(index[field][word]["docIDs"][docID]["pos"])
+                positions.append(index.index[field][word]["docIDs"][docID]["pos"])
         if len(positions) == 0:
             continue
         # print("Positions:", positions)
@@ -207,7 +203,7 @@ def proximity_search(query, docs, index, field, k_best_scores, proximity):
         if len(proximity_positions) == len(positions):
             print("Found the proximity query in the document", proximity_positions)
             print("Snippet:")
-            content = docs["docs"][str(docID)]["content"]
+            content = index.docs["docs"][str(docID)]["content"]
             content = preprocessing_pipelines.pipeline_tokenizer(content)[1]
             print(content)
             print(content[33])
@@ -223,6 +219,7 @@ def proximity_search(query, docs, index, field, k_best_scores, proximity):
 def main():
     index1 = Index(pipeline, "index_1", "test_index")
     index1.create_index_from_folder("data")
+    print(index1.index.keys())
     # ---------------------------------------------------------
     # -----------Searching for the query-----------------------
     query = "nůž OR dýka"
@@ -242,24 +239,24 @@ def main():
     field = ""  # search in all fields
     k = 3
 
-    search(query, field, k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, field, k, index1, model)
 
     index1.delete_document(170)
 
-    search(query, field, k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, field, k, index1, model)
 
     # ---------------------------------------------------------
     query = "Příchod lidí a Noc Slz"
     field = "table_of_contents"  # search in the table of contents
     k = 3
 
-    search(query, field, k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, field, k, index1, model)
     # ---------------------------------------------------------
     query = "dýka"
     field = "content"  # search in the content
     k = 5
 
-    search(query, field, k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, field, k, index1, model)
 
 
     index1.create_document({"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"})
@@ -267,29 +264,29 @@ def main():
     model = "tf-idf"
     k = 3
 
-    search(query, "content", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "content", k, index1, model)
 
     index1.delete_document(170)
-    search(query, "content", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "content", k, index1, model)
 
     # ---------------------------------------------------------
     query = "Keening"
 
-    search(query, "title", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "title", k, index1, model)
 
     index1.update_document(376, "Keening prdel", "title")
-    search(query, "title", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "title", k, index1, model)
 
 
     index1.update_document(376, "Keening", "title")
-    search(query, "title", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "title", k, index1, model)
 
     # ---------------------------------------------------------
     seed_url = 'https://theelderscrolls.fandom.com/cs/wiki/Speci%C3%A1ln%C3%AD:V%C5%A1echny_str%C3%A1nky?from=%22%C5%A0%C3%ADlenci%22+z+Pl%C3%A1n%C3%AD'
     index2 = Index(pipeline, "index2", "test_index2")
     index2.create_index_from_folder("data2")
     index2.create_document_from_url("/cs/wiki/Železná_dýka")
-    search("dýka zbraň vyskytující", "content", 3, index2.index, "tf-idf", index2.document_norms, index2.docs)
+    search("dýka zbraň vyskytující", "content", 3, index2, "tf-idf")
 
 if __name__ == "__main__":
     start_time = time.time()

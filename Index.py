@@ -14,7 +14,7 @@ class Index:
         self.docs = {}
         self.index = {}
         self.document_norms = {}
-        self.keywords = set()
+        self.keywords = set()  # TODO: implement keyword extraction
         self.fields = ["title", "table_of_contents", "infobox", "content"]
         self.lang_detector_all = LangDetector(only_czech_slovak=False)
         self.lang_detector_cz_sk = LangDetector(only_czech_slovak=True)
