@@ -163,76 +163,122 @@ def search(query, field, k, index, model, document_norms, docs):
             print("Document", docID, "with score", score)
             print("Title:", docs["docs"][str(docID)]["title"])
             print("\n")
+        proximity_search(query, docs, index, field, k_best_scores, 7)
+
+def proximity_search(query, docs, index, field, k_best_scores, proximity):
+    """
+    Searches for the proximity query in the documents and prints the k best documents
+    :param query:  proximity query to search for
+    :param docs:  list of documents
+    :param index:  index of the documents\
+    :param field:  field to search in
+    :param k_best_scores:  k best documents
+    :param proximity: max proximity between the words
+    :return: None (prints the k best documents)
+    """
+    for docID, score in k_best_scores:
+        print("Proximity search for the query: {} in the field {} in the document {}".format(query, field, docID))
+        positions = []
+        for word in query:
+            if word not in index[field]:
+                print("Word", word, "not found in the index")
+                break
+            elif docID not in index[field][word]["docIDs"]:
+                print("Word", word, "not found in the document")
+                break
+            else:
+                positions.append(index[field][word]["docIDs"][docID]["pos"])
+        if len(positions) == 0:
+            continue
+        # print("Positions:", positions)
+        proximity_positions = [-1]
+        for i in range(len(positions) - 1):
+            pos_list1 = positions[i]
+            pos_list2 = positions[i + 1]
+            for pos1 in pos_list1:
+                for pos2 in pos_list2:
+                    if proximity_positions[-1] < pos1 < pos2 and pos2 - pos1 <= proximity:
+                        proximity_positions.append(pos1)
+                        break
+        proximity_positions.append(pos2)
+        # print("Proximity positions:", proximity_positions)
+        if len(proximity_positions[1:]) == len(positions):
+            print("Found the proximity query in the document", proximity_positions[1:])
+            print("Title:", docs["docs"][str(docID)]["title"])
+            print("\n")
+
+
+
+
 
 
 def main():
-    # -----------Loading and preprocessing the documents-------
-    docs, index, document_norms = create_index_from_folder(pipeline)
-    # ---------------------------------------------------------
-    # -----------Searching for the query-----------------------
-    query = "nůž OR dýka"
-    model = "boolean"
-    k = 3
-
-    search(query, "title", k, index, model, document_norms, docs)
-    index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
-    search(query, "title", k, index, model, document_norms, docs)
-    # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
-    # ---------------------------------------------------------
-    model = "tf-idf"
-    query = "Kdo je daedrický princ?"
-    field = ""  # search in all fields
-    k = 3
-
-    search(query, field, k, index, model, document_norms, docs)
-
-    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
-
-    search(query, field, k, index, model, document_norms, docs)
-
-    # ---------------------------------------------------------
-    query = "Příchod lidí a Noc Slz"
-    field = "table_of_contents"  # search in the table of contents
-    k = 3
-
-    search(query, field, k, index, model, document_norms, docs)
-    # ---------------------------------------------------------
-    query = "dýka"
-    field = "content"  # search in the content
-    k = 5
-
-    search(query, field, k, index, model, document_norms, docs)
-
-    index, document_norms, docs = create_document(
-        {"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"}, index,
-        document_norms, docs, pipeline)
-    query = "dýka"
-    model = "tf-idf"
-    k = 3
-
-    search(query, "content", k, index, model, document_norms, docs)
-
-    index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
-    search(query, "content", k, index, model, document_norms, docs)
-
-    # ---------------------------------------------------------
-    query = "Keening"
-
-    search(query, "title", k, index, model, document_norms, docs)
-
-    index, document_norms, docs = update_document(376, "Keening prdel", "title", index, document_norms, docs, pipeline)
-    search(query, "title", k, index, model, document_norms, docs)
-
-
-    index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
-    search(query, "title", k, index, model, document_norms, docs)
+    # # -----------Loading and preprocessing the documents-------
+    # docs, index, document_norms = create_index_from_folder(pipeline)
+    # # ---------------------------------------------------------
+    # # -----------Searching for the query-----------------------
+    # query = "nůž OR dýka"
+    # model = "boolean"
+    # k = 3
+    #
+    # search(query, "title", k, index, model, document_norms, docs)
+    # index, document_norms, docs = delete_document(index, document_norms, 850, docs, pipeline)
+    # search(query, "title", k, index, model, document_norms, docs)
+    # # search("nůž OR NOT dýka", "title", k, index, model, document_norms, docs)
+    # # ---------------------------------------------------------
+    # model = "tf-idf"
+    # query = "Kdo je daedrický princ?"
+    # field = ""  # search in all fields
+    # k = 3
+    #
+    # search(query, field, k, index, model, document_norms, docs)
+    #
+    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    #
+    # search(query, field, k, index, model, document_norms, docs)
+    #
+    # # ---------------------------------------------------------
+    # query = "Příchod lidí a Noc Slz"
+    # field = "table_of_contents"  # search in the table of contents
+    # k = 3
+    #
+    # search(query, field, k, index, model, document_norms, docs)
+    # # ---------------------------------------------------------
+    # query = "dýka"
+    # field = "content"  # search in the content
+    # k = 5
+    #
+    # search(query, field, k, index, model, document_norms, docs)
+    #
+    # index, document_norms, docs = create_document(
+    #     {"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"}, index,
+    #     document_norms, docs, pipeline)
+    # query = "dýka"
+    # model = "tf-idf"
+    # k = 3
+    #
+    # search(query, "content", k, index, model, document_norms, docs)
+    #
+    # index, document_norms, docs = delete_document(index, document_norms, 170, docs, pipeline)
+    # search(query, "content", k, index, model, document_norms, docs)
+    #
+    # # ---------------------------------------------------------
+    # query = "Keening"
+    #
+    # search(query, "title", k, index, model, document_norms, docs)
+    #
+    # index, document_norms, docs = update_document(376, "Keening prdel", "title", index, document_norms, docs, pipeline)
+    # search(query, "title", k, index, model, document_norms, docs)
+    #
+    #
+    # index, document_norms, docs = update_document(376, "Keening", "title", index, document_norms, docs, pipeline)
+    # search(query, "title", k, index, model, document_norms, docs)
 
     # ---------------------------------------------------------
     seed_url = 'https://theelderscrolls.fandom.com/cs/wiki/Speci%C3%A1ln%C3%AD:V%C5%A1echny_str%C3%A1nky?from=%22%C5%A0%C3%ADlenci%22+z+Pl%C3%A1n%C3%AD'
     docs, index, document_norms = create_index_from_folder(pipeline, data_folder="data2", index_file="index2.json", document_norms_file="document_norms2.json")
     index, document_norms, docs = create_document_from_url("/cs/wiki/Železná_dýka", index, document_norms, docs, pipeline)
-    print(docs["max_id"])
-    print(docs["docs"]["19"])
+    search("dýka zbraň vyskytující", "content", 3, index, "tf-idf", document_norms, docs)
 
 if __name__ == "__main__":
     start_time = time.time()
