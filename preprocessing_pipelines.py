@@ -27,8 +27,8 @@ def pipeline_tokenizer(text, save_keywords=False):
     if save_keywords:
         with open("cache/keywords.txt", "a", encoding="utf-8") as file:
             file.write("\n".join(set(tokens)) + "\n")
-    # tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
-    # tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
+    tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
+    tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
 
     return preprocessed_text, tokens
 
