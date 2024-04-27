@@ -201,10 +201,17 @@ def proximity_search(query, docs, index, field, k_best_scores, proximity):
                         proximity_positions.append(pos1)
                         break
         proximity_positions.append(pos2)
+        proximity_positions = proximity_positions[1:]
         # print("Proximity positions:", proximity_positions)
-        if len(proximity_positions[1:]) == len(positions):
-            print("Found the proximity query in the document", proximity_positions[1:])
-            print("Title:", docs["docs"][str(docID)]["title"])
+        if len(proximity_positions) == len(positions):
+            print("Found the proximity query in the document", proximity_positions)
+            print("Snippet:")
+            content = docs["docs"][str(docID)]["content"]
+            content = preprocessing_pipelines.pipeline_tokenizer(content)[1]
+            print(content)
+            print(content[33])
+            print(" ".join(content[max(0, proximity_positions[0] - 20):min(len(content), proximity_positions[-1] + 20)]))
+
             print("\n")
 
 
