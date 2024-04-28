@@ -14,6 +14,33 @@ pipeline = preprocessing_pipelines.pipeline_stemmer
 fields = ["title", "table_of_contents", "infobox", "content"]
 
 
+class SearchResult:
+    def __init__(self, doc_id, score, title, snippet, lang):
+        self.doc_id = doc_id
+        self.score = score
+        self.snippet = snippet
+        self.title = title
+        self.lang = lang
+        self.detected_lang = {
+            "cs": "Detekován český jazyk",
+            "de": "Detekován německý jazyk",
+            "en": "Detekován anglický jazyk",
+            "es": "Detekován španělský jazyk",
+            "fr": "Detekován francouzský jazyk",
+            "it": "Detekován italský jazyk",
+            "pl": "Detekován polský jazyk",
+            "pt": "Detekován portugalský jazyk",
+            "ru": "Detekován ruský jazyk",
+            "sk": "Detekován slovenský jazyk",
+        }.get(lang, "Detekován neznámý jazyk")
+
+    def get_item(self):
+        if self.score == 0:
+            return [f"{self.title} (id: {self.doc_id}) - {self.detected_lang}", self.snippet]
+        return [f"{self.title} (id: {self.doc_id} - score: {self.score:.3f}) - {self.detected_lang}", self.snippet]
+
+    def __str__(self):
+        return f"Document {self.doc_id} with score {self.score}\nTitle: {self.title}\nSnippet: {self.snippet}\n"
 
 
 def query_prep(query, index):
@@ -77,6 +104,8 @@ def boolean_search(query, field, index):
     unused_ids = index.docs["unused_ids"]
     for token in postfix_query:
         if token not in ["AND", "OR", "NOT"]:
+            if token == "":
+                continue
             token = pipeline(token)[0]
             if field == "":
                 all_docIDs = set()
@@ -100,12 +129,21 @@ def boolean_search(query, field, index):
                 all_ids.difference_update(dif)
                 all_ids.difference_update(unused_ids)
                 stack.append(all_ids)
+    if len(stack) != 1:
+        print("Error in the query")
+        return [], 0
     result = stack.pop()
+    result_obj = []
     print("Found", len(result), "documents:")
     for docID in result:
         print("Document", docID)
         print("Title:", index.docs["docs"][str(docID)]["title"])
         print("\n")
+        result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
+                                       index.docs["docs"][str(docID)]["content"][0:1000],
+                          index.docs["docs"][str(docID)]["lang_all"]))
+
+    return result_obj, len(result)
 
 
 def search(query, field, k, index, model):
@@ -120,10 +158,11 @@ def search(query, field, k, index, model):
     """
     print("=" * 50)
     if model == "boolean":
-        boolean_search(query, field, index)
-        return None
+        return boolean_search(query, field, index)
     query_orig = query
     query = pipeline(query)
+    result_obj = []
+    results_total = 0
     if field == "":  # search in all fields
         print("Searching for the query: {} in all fields".format(query_orig))
         score_by_field = {}
@@ -136,6 +175,7 @@ def search(query, field, k, index, model):
             score_by_field[field] = k_best_scores
 
         print("Found", len(docs_found), "documents in total")
+        results_total = len(docs_found)
         print("Top", k, "documents:")
         field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5}  # weights for the fields
         k_best_scores = {}
@@ -149,6 +189,9 @@ def search(query, field, k, index, model):
             print("Document", docID, "with score", score)
             print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
+            result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
+                                           index.docs["docs"][str(docID)]["content"][0:1000],
+                              index.docs["docs"][str(docID)]["lang_all"]))
 
     else:  # search in the specified field
         print("Searching for the query: {} in the field {}".format(query_orig, field))
@@ -156,12 +199,19 @@ def search(query, field, k, index, model):
         scores = calculate_scores(query_tf_idf, query_norm, index, field)
         k_best_scores = calculate_k_best_scores(scores, k)
         print("Found", len(scores), "documents in total")
+        results_total = len(scores)
         print("Top", k, "documents:")
         for docID, score in k_best_scores:
             print("Document", docID, "with score", score)
             print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
-        # proximity_search(query, docs, index, field, k_best_scores, 7)
+            result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
+                                           index.docs["docs"][str(docID)]["content"][0:1000],
+                              index.docs["docs"][str(docID)]["lang_all"]))
+
+    return result_obj, results_total
+    # proximity_search(query, docs, index, field, k_best_scores, 7)
+
 
 def proximity_search(query, index, field, k_best_scores, proximity):
     """
@@ -207,13 +257,15 @@ def proximity_search(query, index, field, k_best_scores, proximity):
             content = preprocessing_pipelines.pipeline_tokenizer(content)[1]
             print(content)
             print(content[33])
-            print(" ".join(content[max(0, proximity_positions[0] - 20):min(len(content), proximity_positions[-1] + 20)]))
+            print(
+                " ".join(content[max(0, proximity_positions[0] - 20):min(len(content), proximity_positions[-1] + 20)]))
 
             print("\n")
 
 
-
-
+index1 = Index(pipeline, "index_1", "test_index")
+index1.create_index_from_folder("data")
+indexes = [index1]
 
 
 def main():
@@ -258,8 +310,8 @@ def main():
 
     search(query, field, k, index1, model)
 
-
-    index1.create_document({"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"})
+    index1.create_document(
+        {"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"})
     query = "dýka"
     model = "tf-idf"
     k = 3
@@ -277,7 +329,6 @@ def main():
     index1.update_document(376, "Keening prdel", "title")
     search(query, "title", k, index1, model)
 
-
     index1.update_document(376, "Keening", "title")
     search(query, "title", k, index1, model)
 
@@ -287,6 +338,7 @@ def main():
     index2.create_index_from_folder("data2")
     index2.create_document_from_url("/cs/wiki/Železná_dýka")
     search("dýka zbraň vyskytující", "content", 3, index2, "tf-idf")
+
 
 if __name__ == "__main__":
     start_time = time.time()
