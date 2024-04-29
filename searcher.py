@@ -95,6 +95,49 @@ def calculate_k_best_scores(scores, k):
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
 
+def create_snippet(content, positions):
+    """
+    Creates a snippet from the content based on the positions
+    :param content: content of the document
+    :param positions: positions of the words in the snippet
+    :return: snippet
+    """
+    WINDOW_SIZE = 30
+    positions = np.array([item for sublist in positions for item in sublist])
+    positions.sort()
+    content_tokens = preprocessing_pipelines.pipeline_tokenizer(content, snippet=True)[1]
+    print("Positions:", positions)
+    if len(positions) == 0:
+        return " ".join(content_tokens[:min(len(content_tokens), 2 * WINDOW_SIZE)])
+    start = end = max_count = 0
+    best_window = None
+
+    while end < len(positions):
+        if positions[end] - positions[start] > WINDOW_SIZE:
+            start += 1
+        else:
+            if end - start + 1 > max_count:
+                max_count = end - start + 1
+                best_window = (positions[start], positions[end])
+            end += 1
+    print("Best window:", best_window)
+    # for i in range(best_window[0], best_window[1] + 1):
+    #     # content_tokens[i] = f"**{content_tokens[i]}**"
+    #     # ('<span style="color:#8bb6e0;">' + title + '</span>')
+    #     if i in positions:
+    #         content_tokens[i] = f'<span style="background-color:#4B77BE;">{content_tokens[i]}</span>'
+    # snippet = " ".join(content_tokens[max(0, best_window[0] - WINDOW_SIZE):min(len(content_tokens), best_window[1] + WINDOW_SIZE)])
+    #
+    snippet = ""
+    for i in range(max(0, best_window[0] - WINDOW_SIZE),
+                   min(len(content_tokens), best_window[1] + WINDOW_SIZE)):  # highlight the words
+        if i in positions:
+            content_tokens[i] = f'<span style="background-color:#4B77BE;">{content_tokens[i]}</span>'
+        snippet += content_tokens[i] + " "
+
+    return "... " + snippet + " ..."
+
+
 def boolean_search(query, field, index):
     print("Searching for the query: {} using the boolean model".format(query))
     postfix_query = infix_to_postfix(query)
@@ -102,11 +145,13 @@ def boolean_search(query, field, index):
     stack = []
     max_id = index.docs["max_id"]
     unused_ids = index.docs["unused_ids"]
+    words = set()
     for token in postfix_query:
         if token not in ["AND", "OR", "NOT"]:
             if token == "":
                 continue
             token = pipeline(token)[0]
+            words.add(token)
             if field == "":
                 all_docIDs = set()
                 for f in fields:
@@ -119,11 +164,11 @@ def boolean_search(query, field, index):
                 else:
                     stack.append([])
         else:
-            if token == "AND":
+            if token == "AND" and len(stack) >= 2:
                 stack.append(set(stack.pop()).intersection(stack.pop()))
-            elif token == "OR":
+            elif token == "OR" and len(stack) >= 2:
                 stack.append(set(stack.pop()).union(stack.pop()))
-            elif token == "NOT":
+            elif token == "NOT" and len(stack) >= 1:
                 all_ids = set(map(str, range(max_id + 1)))
                 dif = stack.pop()
                 all_ids.difference_update(dif)
@@ -139,9 +184,15 @@ def boolean_search(query, field, index):
         print("Document", docID)
         print("Title:", index.docs["docs"][str(docID)]["title"])
         print("\n")
+        positions = []
+        for word in words:
+            if word in index.index["content"]:
+                positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
+        snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
+        print(snippet)
         result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
-                                       index.docs["docs"][str(docID)]["content"][0:1000],
-                          index.docs["docs"][str(docID)]["lang_all"]))
+                                       snippet,
+                                       index.docs["docs"][str(docID)]["lang_all"]))
 
     return result_obj, len(result)
 
@@ -158,6 +209,10 @@ def search(query, field, k, index, model):
     """
     print("=" * 50)
     if model == "boolean":
+        if "\"" in query or "~" in query:
+            query = query.replace("\"", "").split("~")[0]
+            print(query)
+            print("Proximity search is not supported in the boolean model")
         return boolean_search(query, field, index)
     query_orig = query
     query = pipeline(query)
@@ -191,7 +246,7 @@ def search(query, field, k, index, model):
             print("\n")
             result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
                                            index.docs["docs"][str(docID)]["content"][0:1000],
-                              index.docs["docs"][str(docID)]["lang_all"]))
+                                           index.docs["docs"][str(docID)]["lang_all"]))
 
     else:  # search in the specified field
         print("Searching for the query: {} in the field {}".format(query_orig, field))
@@ -207,7 +262,7 @@ def search(query, field, k, index, model):
             print("\n")
             result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
                                            index.docs["docs"][str(docID)]["content"][0:1000],
-                              index.docs["docs"][str(docID)]["lang_all"]))
+                                           index.docs["docs"][str(docID)]["lang_all"]))
 
     return result_obj, results_total
     # proximity_search(query, docs, index, field, k_best_scores, 7)
@@ -269,18 +324,18 @@ indexes = [index1]
 
 
 def main():
-    index1 = Index(pipeline, "index_1", "test_index")
-    index1.create_index_from_folder("data")
-    print(index1.index.keys())
+    # index1 = Index(pipeline, "index_1", "test_index")
+    # index1.create_index_from_folder("data")
     # ---------------------------------------------------------
     # -----------Searching for the query-----------------------
-    query = "nůž OR dýka"
+    query = "\"zbraň OR dýka\""
+    query = "OR"
     model = "boolean"
     k = 3
 
-    # search(query, "", k, index1.index, model, index1.document_norms, index1.docs)
+    search(query, "", k, index1, model)
     # index1.delete_document(850)
-    # search(query, "", k, index1.index, model, index1.document_norms, index1.docs)
+    # search(query, "", k, index1, model)
 
     # ---------------------------------------------------------
 

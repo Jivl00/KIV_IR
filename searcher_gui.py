@@ -123,6 +123,7 @@ class SearchEngineGUI(QWidget):
 
     def initUI(self):
         self.setWindowTitle("Elder Scrolls Vyhledávač")
+        self.setWindowIcon(QIcon('img/magnifying-glass-3-xxl.png'))
         layout = QVBoxLayout()
 
         # Set margins around the layout
@@ -169,9 +170,6 @@ class SearchEngineGUI(QWidget):
         self.index_combobox.setFont(font)
         for index in indexes:
             self.index_combobox.addItem(index.index_name)
-        # self.index_combobox.addItem("i 1")
-        # self.index_combobox.addItem("i 2")
-        # self.index_combobox.addItem("i 3")
 
         self.description_label = QLabel("Index:")
         self.description_label.setFont(font)
@@ -244,6 +242,14 @@ class SearchEngineGUI(QWidget):
         self.under_search_bar_text.setFont(font)
         grid_layout.addWidget(self.under_search_bar_text, 1, 1)
 
+        self.proximity_info = QLabel("Pro vyhledávání s využitím vzdáleností mezi slovy, zadejte dotaz ve formátu: <dotaz>~vzdálenost")
+        self.proximity_info.setFont(font)
+        grid_layout.addWidget(self.proximity_info, 2, 0)
+
+        self.phrase_info = QLabel("Pro vyhledávání frází, zadejte dotaz ve formátu: \"<dotaz>\"")
+        self.phrase_info.setFont(font)
+        grid_layout.addWidget(self.phrase_info, 3, 0)
+
 
 
 
@@ -270,10 +276,14 @@ class SearchEngineGUI(QWidget):
         if self.model_combobox.currentText() == "TF-IDF model":
             self.k_field.show()
             self.k_label.show()
+            self.proximity_info.show()
+            self.phrase_info.show()
         else:
             # Otherwise, hide the k field and its label
             self.k_field.hide()
             self.k_label.hide()
+            self.proximity_info.hide()
+            self.phrase_info.hide()
 
     def search_prep(self):
         user_search_history.append(SEARCH_CONFIG["query"])  # Append the query to the user search history
@@ -359,6 +369,7 @@ if __name__ == '__main__':
     import sys
 
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon('img/magnifying-glass-3-xxl.png'))
     qdarktheme.setup_theme()
 
     window = SearchEngineGUI()

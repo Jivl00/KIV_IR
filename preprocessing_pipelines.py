@@ -8,14 +8,16 @@ import preprocessor
 CZECH_STOPWORDS = "utils/stopwords-cs.txt"
 SLOVAK_STOPWORDS = "utils/stopwords-sk.txt"
 
-
-def pipeline_tokenizer(text, save_keywords=False):
+def pipeline_tokenizer(text, save_keywords=False, snippet=False):
     """
     Tokenizes the input text and removes stopwords
     :param text:  input text
     :return:  preprocessed text and list of tokens
     """
-    preprocessed_text = preprocessor.to_lower(text)  # convert to lowercase
+    if snippet:
+        preprocessed_text = text
+    else:
+        preprocessed_text = preprocessor.to_lower(text)  # convert to lowercase
     preprocessed_text = preprocessor.remove_html_tags(preprocessed_text)  # remove html tags
     preprocessed_text = preprocessor.remove_in_text_citation_marks(
         preprocessed_text)  # remove in text citation marks e.g. [12]
@@ -23,12 +25,15 @@ def pipeline_tokenizer(text, save_keywords=False):
     preprocessed_text = re.sub(r'(\d)([a-zA-Z])|([a-zA-Z])(\d)', r'\1\3 \2\4',
                                preprocessed_text)  # add space between number and letter or letter and number
 
-    tokens = preprocessor.tokenize(preprocessed_text)  # tokenize the text
+    if snippet:
+        tokens = preprocessor.tokenize_snippet(preprocessed_text)
+    else:
+        tokens = preprocessor.tokenize(preprocessed_text)  # tokenize the text
     if save_keywords:
         with open("cache/keywords.txt", "a", encoding="utf-8") as file:
             file.write("\n".join(set(tokens)) + "\n")
-    tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
-    tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
+    # tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
+    # tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
 
     return preprocessed_text, tokens
 

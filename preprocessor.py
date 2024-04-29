@@ -79,6 +79,32 @@ def tokenize(text):
 
     return tokenized
 
+def tokenize_snippet(text):
+    """
+    Tokenizes the text using regexs for urls, dates, times, emails and words with stars and default regex
+    :param text: input text
+    :return: list of tokens
+    """
+    default_regex = r"(\d+[.,]\d+?)|([\w]+[.,:]?)"  # default regex - numbers and words
+    url_regex = r"(https?:\/\/[^\s]+[.,]?)"  # url
+    date_regex = r"(\d{1,2}\.\d{1,2}\.\d{4}[.,]?)"  # date in format dd.mm.yyyy
+    time_regex = r"(\d{1,2}:\d{1,2}[.,]?)"  # time in format hh:mm
+    email_regex = r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[.,]?)"  # email
+    words_with_stars = r"(\w+\*\w+[.,]?)"  # words with stars
+
+    tokenized = []
+    for word in text.split(' '):
+        word = word.replace("-", " ").replace("_", " ")
+        if re.match(url_regex, word) or re.match(date_regex, word) or re.match(time_regex, word) or re.match(
+                email_regex, word) or re.match(words_with_stars, word):
+            tokenized.append(word)
+        else:
+            matched = re.match(default_regex, word)
+            if matched:
+                tokenized.append(matched.group())
+
+    return tokenized
+
 
 def stem(line, tokens, aggressive=True):
     """
