@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox, \
-    QScrollBar, QAbstractItemView
+    QScrollBar, QAbstractItemView, QSpacerItem
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
     QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
 from functools import cached_property
@@ -155,8 +155,14 @@ class SearchEngineGUI(QWidget):
         # Connect the returnPressed signal to the perform_search method
         self.search_bar.returnPressed.connect(self.perform_search)
 
-        grid_layout.addWidget(self.search_bar, 0, 0,1,3)  # Add to first row, first column
-        grid_layout.addWidget(self.search_button, 0, 2)  # Add to first row, second column
+        grid_layout.addWidget(self.search_bar, 0, 0,1,3)
+        grid_layout.addWidget(self.search_button, 0, 2)
+
+        # Create a QSpacerItem
+        spacer = QSpacerItem(200, 40)
+
+        # Add the spacer to the grid layout at the desired column
+        grid_layout.addItem(spacer, 0, 3)
 
         # Add a combobox next to the search bar
         self.index_combobox = QComboBox()
@@ -173,8 +179,8 @@ class SearchEngineGUI(QWidget):
         # Connect the currentIndexChanged signal to the print_selected_option method
         self.index_combobox.currentIndexChanged.connect(self.update_selected_index)
 
-        grid_layout.addWidget(self.description_label, 0, 3)  # Add to first row, first column
-        grid_layout.addWidget(self.index_combobox, 0, 4)  # Add to first row, second column
+        grid_layout.addWidget(self.description_label, 0, 4)  # Add to first row, first column
+        grid_layout.addWidget(self.index_combobox, 0, 5)  # Add to first row, second column
 
 
         # Add a combobox next to the search bar
@@ -192,8 +198,8 @@ class SearchEngineGUI(QWidget):
         # Connect the currentIndexChanged signal to the print_selected_option method
         self.field_combobox.currentIndexChanged.connect(self.update_selected_field)
 
-        grid_layout.addWidget(self.description_label, 1, 3)  # Add to first row, first column
-        grid_layout.addWidget(self.field_combobox, 1, 4)  # Add to first row, second column
+        grid_layout.addWidget(self.description_label, 1, 4)  # Add to first row, first column
+        grid_layout.addWidget(self.field_combobox, 1, 5)  # Add to first row, second column
 
         # Add a combobox for model selection
         self.model_combobox = QComboBox()
@@ -207,8 +213,8 @@ class SearchEngineGUI(QWidget):
         # Connect the currentIndexChanged signal to the handle_model_selection method
         self.model_combobox.currentIndexChanged.connect(self.handle_model_selection)
 
-        grid_layout.addWidget(self.model_label, 2, 3)  # Add to third row, third column
-        grid_layout.addWidget(self.model_combobox, 2, 4)  # Add to third row, fifth column
+        grid_layout.addWidget(self.model_label, 2, 4)  # Add to third row, third column
+        grid_layout.addWidget(self.model_combobox, 2, 5)  # Add to third row, fifth column
 
         # Add an additional field for the selection of value k
         self.k_field = QSpinBox()
@@ -223,8 +229,8 @@ class SearchEngineGUI(QWidget):
         # Connect the valueChanged signal to the update_selected_k method
         self.k_field.valueChanged.connect(self.update_selected_k)
 
-        grid_layout.addWidget(self.k_label, 3, 3)  # Add to fourth row, third column
-        grid_layout.addWidget(self.k_field, 3, 4)  # Add to fourth row, fifth column
+        grid_layout.addWidget(self.k_label, 3, 4)  # Add to fourth row, third column
+        grid_layout.addWidget(self.k_field, 3, 5)  # Add to fourth row, fifth column
 
 
         self.checkbox_lang = QCheckBox('Detekce jazyka dotazu')
