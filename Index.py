@@ -21,6 +21,32 @@ class Index:
         if not os.path.exists(index_folder):
             os.makedirs(index_folder)
 
+    def save_index(self):
+        """
+        Saves the index to a file
+        """
+        with open(os.path.join(self.index_folder, self.index_name + "_index.json"), "w", encoding="utf-8") as file:
+            json.dump(self.index, file, ensure_ascii=False, indent=1)
+        with open(os.path.join(self.index_folder, self.index_name + "_document_norms.json"), "w", encoding="utf-8") as file:
+            json.dump(self.document_norms, file, ensure_ascii=False, indent=1)
+        with open(os.path.join(self.index_folder, self.index_name + "_docs.json"), "w", encoding="utf-8") as file:
+            json.dump(self.docs, file, ensure_ascii=False, indent=1)
+        with open(os.path.join(self.index_folder, self.index_name + "_keywords.json"), "w", encoding="utf-8") as file:
+            json.dump(list(self.keywords), file, ensure_ascii=False, indent=1)
+
+    def load_index(self):
+        """
+        Loads the index from a file
+        """
+        with open(os.path.join(self.index_folder, self.index_name + "_index.json"), "r", encoding="utf-8") as file:
+            self.index = json.load(file)
+        with open(os.path.join(self.index_folder, self.index_name + "_document_norms.json"), "r", encoding="utf-8") as file:
+            self.document_norms = json.load(file)
+        with open(os.path.join(self.index_folder, self.index_name + "_docs.json"), "r", encoding="utf-8") as file:
+            self.docs = json.load(file)
+        with open(os.path.join(self.index_folder, self.index_name + "_keywords.json"), "r", encoding="utf-8") as file:
+            self.keywords = set(json.load(file))
+
     def create_doc_cache(self, data_folder="data"):
         """
         Loads documents from the data folder and saves them to a cache

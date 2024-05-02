@@ -351,7 +351,8 @@ def proximity_search(query, index, field, scores, proximity, k):
 
 
 index1 = Index(pipeline, "index_1", "test_index")
-index1.create_index_from_folder("data")
+# index1.create_index_from_folder("data")
+index1.load_index()
 # indexes = [index1]
 
 index2 = Index(pipeline, "index2", "test_index2")
