@@ -221,7 +221,7 @@ class SearchEngineGUI(QWidget):
         self.k_field.setMaximum(100)
         self.k_field.setValue(10)
 
-        self.k_label = QLabel("Počet nejlepších vyhledaných\ndokumentů k zobrazení:")
+        self.k_label = QLabel("Počet vyhledaných\ndokumentů k zobrazení:")
         self.k_label.setFont(font)
 
         # Connect the valueChanged signal to the update_selected_k method
@@ -274,14 +274,14 @@ class SearchEngineGUI(QWidget):
     def handle_model_selection(self):
         self.update_selected_model()
         if self.model_combobox.currentText() == "TF-IDF model":
-            self.k_field.show()
-            self.k_label.show()
+            # self.k_field.show()
+            # self.k_label.show()
             self.proximity_info.show()
             self.phrase_info.show()
         else:
             # Otherwise, hide the k field and its label
-            self.k_field.hide()
-            self.k_label.hide()
+            # self.k_field.hide()
+            # self.k_label.hide()
             self.proximity_info.hide()
             self.phrase_info.hide()
 
