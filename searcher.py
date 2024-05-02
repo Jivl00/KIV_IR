@@ -243,7 +243,7 @@ def search(query, field, k, index, model):
                     k_best_scores[docID] = 0
                 k_best_scores[docID] += score * field_weights[field]  # add the score with the weight
         if proximity > 0:
-            return proximity_search(query, index, "", sorted(k_best_scores.items(), key=lambda x: x[1], reverse=True), proximity, k)
+            return proximity_search(query, index, "content", k_best_scores, proximity, k)
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         format_result(index, query, k_best_scores, result_obj)
 
@@ -253,7 +253,7 @@ def search(query, field, k, index, model):
         scores = calculate_scores(query_tf_idf, query_norm, index, field)
 
         if proximity > 0:
-            return proximity_search(query, index, field, scores, proximity, k)
+            return proximity_search(query, index, "content", scores, proximity, k)
         k_best_scores = calculate_k_best_scores(scores, k)
         print("Found", len(scores), "documents in total")
         results_total = len(scores)
@@ -290,7 +290,8 @@ def proximity_search(query, index, field, scores, proximity, k):
     :return: None (prints the k best documents)
     """
     best_scores = defaultdict(float)
-    doc_positions = defaultdict(float)
+    doc_positions = defaultdict(list)
+    print(scores)
     for docID in scores:
         print("Proximity search for the query: {} in the field {} in the document {}".format(query, field, docID))
         positions = []
@@ -305,36 +306,31 @@ def proximity_search(query, index, field, scores, proximity, k):
                 positions.append(index.index[field][word]["docIDs"][docID]["pos"])
         if len(positions) == 0:
             continue
-        # print("Positions:", positions)
         proximity_positions = [-1]
+        last_pos = None
         for i in range(len(positions) - 1):
             pos_list1 = positions[i]
             pos_list2 = positions[i + 1]
+            found = False
             for pos1 in pos_list1:
                 for pos2 in pos_list2:
                     if proximity_positions[-1] < pos1 < pos2 and pos2 - pos1 <= proximity:
                         proximity_positions.append(pos1)
+                        last_pos = pos2
+                        found = True
                         break
-        try:
-            proximity_positions.append(pos2)
-            proximity_positions = proximity_positions[1:]
-        except UnboundLocalError:
-            continue
+                if found:
+                    break
+        if last_pos is not None:
+            proximity_positions.append(last_pos)
+            proximity_positions = proximity_positions[1:] # remove the first element -1
+        # except UnboundLocalError:
+        #     continue
         # print("Proximity positions:", proximity_positions)
-        if len(proximity_positions) == len(positions):
+        if len(proximity_positions) == len(positions) and proximity_positions[0] != -1:
             best_scores[docID] = scores[docID]
             doc_positions[docID] = proximity_positions
             print("Found the proximity query in the document", proximity_positions)
-            print("Snippet:")
-            content = index.docs["docs"][str(docID)]["content"]
-            content = preprocessing_pipelines.pipeline_tokenizer(content, snippet=True)[1]
-            # print(content)
-            # print(content[33])
-            print(
-                " ".join(content[max(0, proximity_positions[0] - 20):min(len(content), proximity_positions[-1] + 20)]))
-
-            print("\n")
-
     results_total = len(best_scores)
     if k > len(best_scores):
         k = len(best_scores)
@@ -353,16 +349,16 @@ def proximity_search(query, index, field, scores, proximity, k):
                                        index.docs["docs"][str(docID)]["lang_all"]))
     return result_obj, results_total
 
-#
-# index1 = Index(pipeline, "index_1", "test_index")
-# index1.create_index_from_folder("data")
+
+index1 = Index(pipeline, "index_1", "test_index")
+index1.create_index_from_folder("data")
 # indexes = [index1]
 
 index2 = Index(pipeline, "index2", "test_index2")
 index2.create_index_from_folder("data2")
 index2.create_document_from_url("/cs/wiki/Železná_dýka")
 search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
-indexes = [index2]
+indexes = [index1, index2]
 
 def main():
     # index1 = Index(pipeline, "index_1", "test_index")
@@ -433,6 +429,8 @@ def main():
     index2.create_index_from_folder("data2")
     index2.create_document_from_url("/cs/wiki/Železná_dýka")
     search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
+    # search("poslední migrace ~5", "content", 3, index2, "tf-idf")
+    # search("železná dýka~1", "content", 3, index2, "tf-idf")
 
 
 if __name__ == "__main__":
