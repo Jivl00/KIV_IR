@@ -192,7 +192,10 @@ class Index:
         for field in self.fields:
             tokens = preprocessed_doc[field]
             for token in set(tokens):
-                docs_with_token = set(self.index[field][token]["docIDs"].keys())
+                if token in self.index[field]:
+                    docs_with_token = set(self.index[field][token]["docIDs"].keys())
+                else:
+                    docs_with_token = set()
                 if token not in self.index[field]:
                     self.index[field][token] = {"idf": 0, "df": 0, "docIDs": defaultdict(lambda: {"tf": 0, "tf-idf": 0, "pos": []})}
                 # Update the idf and df
@@ -210,6 +213,8 @@ class Index:
                         self.document_norms[field][docID] ** 2 - (old_tf_idf ** 2) + (
                                 self.index[field][token]["docIDs"][docID]["tf-idf"] ** 2))
                 tf = tokens.count(token)
+                if doc_id not in self.index[field][token]["docIDs"]:
+                    self.index[field][token]["docIDs"][doc_id] = {"tf": 0, "tf-idf": 0, "pos": []}
                 self.index[field][token]["docIDs"][doc_id]["tf"] = tf
                 tf_idf = (1 + np.log10(tf)) * idf
                 self.index[field][token]["docIDs"][doc_id]["tf-idf"] = tf_idf
@@ -246,7 +251,12 @@ class Index:
                 else:  # if the token is not in the new text - it has been removed
                     old_tf_idf = self.index[field][token]["docIDs"][doc_id]["tf-idf"]
                     self.index[field][token]["docIDs"].pop(doc_id)
-                    self.document_norms[field][doc_id] = np.sqrt(self.document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2))
+                    new_doc_norm = self.document_norms[field][doc_id] ** 2 - (old_tf_idf ** 2)
+                    if new_doc_norm > 0:
+                        self.document_norms[field][doc_id] = np.sqrt(new_doc_norm)
+                    else:
+                        self.document_norms[field][doc_id] = 0
+                    print(self.document_norms[field][doc_id])
                     self.index[field][token]["df"] -= 1
                     if self.index[field][token]["df"] == 0:
                         self.index[field].pop(token)

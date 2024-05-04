@@ -183,7 +183,8 @@ def boolean_search(query, field, k, index):
         positions = []
         for word in words:
             if word in index.index["content"]:
-                positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
+                if docID in index.index["content"][word]["docIDs"]:
+                    positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
         snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
         print(snippet)
         result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
@@ -352,15 +353,21 @@ def proximity_search(query, index, field, scores, proximity, k):
 
 
 index1 = Index(pipeline, "index_1", "test_index")
-index1.create_index_from_folder("data")
+# index1.create_index_from_folder("data")
 # index1.save_index()
-# index1.load_index()
+index1.load_index()
 # indexes = [index1]
-search("železná dýka je~50", "content", 3, index1, "tf-idf")
+search("železná dýka", "content", 3, index1, "tf-idf")
 
 index2 = Index(pipeline, "index2", "test_index2")
 index2.create_index_from_folder("data2")
+index2.save_index()
+index2.load_index()
 index2.create_document_from_url("/cs/wiki/Železná_dýka")
+index2.delete_document(19)
+index2.update_document(2, "Železná dýka", "title")
+index2.update_document(2, "Železná dýka je", "title")
+search("železná dýka", "title", 3, index2, "tf-idf")
 indexes = [index1, index2]
 
 def main():
