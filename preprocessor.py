@@ -3,6 +3,8 @@ from simplemma.langdetect import lang_detector
 import simplemma
 import utils.stemmer_cs
 import utils.stemmer_sk
+from lemmagen3 import Lemmatizer
+
 
 def to_lower(text):
     """
@@ -133,6 +135,28 @@ def lemmatize(line, tokens):
     """
 
     lemmatized = [simplemma.lemmatize(word, lang=("cs", "sk"), greedy=True) for word in tokens]
+
+
+    # don't lemmatize urls and emails
+    url_regex = r"(https?:\/\/[^\s]+)"
+    email_regex = r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"
+    for i, token in enumerate(lemmatized):
+        if re.match(url_regex, token) or re.match(email_regex, token):
+            lemmatized[i] = tokens[i]
+    return lemmatized
+
+
+def lemmatize2(line, tokens):
+    """
+    Lemmatizes the tokens using simplemma library
+    :param line: input line for language detection
+    :param tokens: input tokens
+    :return: list of lemmatized tokens
+    """
+    lem_cs = Lemmatizer('cs')
+
+    # lemmatized = [simplemma.lemmatize(word, lang=("cs", "sk"), greedy=True) for word in tokens]
+    lemmatized = [lem_cs.lemmatize(word) for word in tokens]
 
 
     # don't lemmatize urls and emails

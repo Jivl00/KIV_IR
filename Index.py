@@ -256,7 +256,6 @@ class Index:
                         self.document_norms[field][doc_id] = np.sqrt(new_doc_norm)
                     else:
                         self.document_norms[field][doc_id] = 0
-                    print(self.document_norms[field][doc_id])
                     self.index[field][token]["df"] -= 1
                     if self.index[field][token]["df"] == 0:
                         self.index[field].pop(token)

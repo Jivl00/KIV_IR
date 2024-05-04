@@ -15,7 +15,7 @@ fields = ["title", "table_of_contents", "infobox", "content"]
 
 
 class SearchResult:
-    def __init__(self, doc_id, score, title, snippet, lang):
+    def __init__(self, doc_id, score, title, snippet, lang="cs"):
         self.doc_id = doc_id
         self.score = score
         self.snippet = snippet
@@ -187,14 +187,18 @@ def boolean_search(query, field, k, index):
                     positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
         snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
         print(snippet)
-        result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
-                                       snippet,
-                                       index.docs["docs"][str(docID)]["lang_all"]))
+        if "lang_all" in index.docs["docs"][str(docID)]:
+            result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
+                                           snippet,
+                                           index.docs["docs"][str(docID)]["lang_all"]))
+        else:
+            result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
+                                           snippet))
 
     return result_obj, len(result)
 
 
-def search(query, field, k, index, model):
+def search(query, field, k, index, model, verbose=False):
     """
     Searches for the query in the index and prints the k best documents
     :param query:  query to search for
@@ -202,13 +206,14 @@ def search(query, field, k, index, model):
     :param k: number of best documents to return
     :param index:  index of the documents
     :param model:  model to use for the search
+    :param verbose: whether to print the results
     :return: None (prints the k best documents)
     """
     print("=" * 50)
     if model == "boolean":
         if "\"" in query or "~" in query:
             query = query.replace("\"", "").split("~")[0]
-            print(query)
+            # print(query)
             print("Proximity search is not supported in the boolean model")
         return boolean_search(query, field, k, index)
     proximity = 0
@@ -234,9 +239,10 @@ def search(query, field, k, index, model):
             k_best_scores = calculate_k_best_scores(scores, k * 2)
             score_by_field[field] = k_best_scores
 
-        print("Found", len(docs_found), "documents in total")
         results_total = len(docs_found)
-        print("Top", k, "documents:")
+        print("Found", results_total, "documents in total")
+        if verbose:
+            print("Top", k, "documents:")
         field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5}  # weights for the fields
         k_best_scores = {}
         for field in score_by_field:  # combine the scores from all fields
@@ -247,7 +253,7 @@ def search(query, field, k, index, model):
         if proximity > 0:
             return proximity_search(query, index, "content", k_best_scores, proximity, k)
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
-        format_result(index, query, k_best_scores, result_obj)
+        format_result(index, query, k_best_scores, result_obj, verbose)
 
     else:  # search in the specified field
         print("Searching for the query: {} in the field {}".format(query_orig, field))
@@ -259,26 +265,32 @@ def search(query, field, k, index, model):
         k_best_scores = calculate_k_best_scores(scores, k)
         print("Found", len(scores), "documents in total")
         results_total = len(scores)
-        print("Top", k, "documents:")
-        format_result(index, query, k_best_scores, result_obj)
+        if verbose:
+            print("Top", k, "documents:")
+        format_result(index, query, k_best_scores, result_obj, verbose)
 
     return result_obj, results_total
 
 
-def format_result(index, query, k_best_scores, result_obj):
+def format_result(index, query, k_best_scores, result_obj, verbose=True):
     for docID, score in k_best_scores:
-        print("Document", docID, "with score", score)
-        print("Title:", index.docs["docs"][str(docID)]["title"])
-        print("\n")
-        positions = []
-        for word in query:
-            if word in index.index["content"]:
-                if str(docID) in index.index["content"][word]["docIDs"]:
-                    positions.append(index.index["content"][word]["docIDs"][str(docID)]["pos"])
-        snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
-        result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
-                                       snippet,
-                                       index.docs["docs"][str(docID)]["lang_all"]))
+        if verbose:
+            print("Document", docID, "with score", score)
+            print("Title:", index.docs["docs"][str(docID)]["title"])
+            print("\n")
+        if "lang_all" in index.docs["docs"][str(docID)]:
+            positions = []
+            for word in query:
+                if word in index.index["content"]:
+                    if str(docID) in index.index["content"][word]["docIDs"]:
+                        positions.append(index.index["content"][word]["docIDs"][str(docID)]["pos"])
+            snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
+            result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
+                                           snippet,
+                                           index.docs["docs"][str(docID)]["lang_all"]))
+        else:
+            result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
+                                           "snippet"))
 
 
 def proximity_search(query, index, field, scores, proximity, k):
@@ -357,7 +369,7 @@ index1 = Index(pipeline, "index_1", "test_index")
 # index1.save_index()
 index1.load_index()
 # indexes = [index1]
-search("železná dýka", "content", 3, index1, "tf-idf")
+search("železná dýka", "content", 3, index1, "tf-idf", verbose=False)
 
 index2 = Index(pipeline, "index2", "test_index2")
 index2.create_index_from_folder("data2")
@@ -367,7 +379,7 @@ index2.create_document_from_url("/cs/wiki/Železná_dýka")
 index2.delete_document(19)
 index2.update_document(2, "Železná dýka", "title")
 index2.update_document(2, "Železná dýka je", "title")
-search("železná dýka", "title", 3, index2, "tf-idf")
+search("železná dýka", "title", 3, index2, "tf-idf", verbose=False)
 indexes = [index1, index2]
 
 def main():

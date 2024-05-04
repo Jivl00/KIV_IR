@@ -66,6 +66,19 @@ def pipeline_lemmatizer(text, save_keywords=False, remove_stopwords=False):
     return lemmatized
 
 
+def pipeline_lemmatizer2(text, save_keywords=False, remove_stopwords=False):
+    """
+    Lemmatizes the input text and removes diacritics
+    :param text:  input text
+    :return:  list of lemmatized tokens without diacritics
+    """
+    if not text:  # if the text isn't empty
+        return []
+    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords, remove_stopwords=remove_stopwords)  # tokenize the text
+    lemmatized = preprocessor.lemmatize2(preprocessed_text, tokens)  # lemmatize the tokens
+    return lemmatized
+
+
 def preprocess_file(file_path, pipeline):
     """
     Preprocesses the file using the given pipeline and saves the preprocessed data to a new file
