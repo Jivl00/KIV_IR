@@ -8,7 +8,7 @@ import preprocessor
 CZECH_STOPWORDS = "utils/stopwords-cs.txt"
 SLOVAK_STOPWORDS = "utils/stopwords-sk.txt"
 
-def pipeline_tokenizer(text, save_keywords=False, snippet=False):
+def pipeline_tokenizer(text, save_keywords=False, snippet=False, remove_stopwords=False):
     """
     Tokenizes the input text and removes stopwords
     :param text:  input text
@@ -30,15 +30,17 @@ def pipeline_tokenizer(text, save_keywords=False, snippet=False):
     else:
         tokens = preprocessor.tokenize(preprocessed_text)  # tokenize the text
     if save_keywords:
+        pass
         with open("cache/keywords.txt", "a", encoding="utf-8") as file:
             file.write("\n".join(set(tokens)) + "\n")
-    # tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
-    # tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
+    if remove_stopwords:
+        tokens = preprocessor.remove_stop_words(CZECH_STOPWORDS, tokens)
+        tokens = preprocessor.remove_stop_words(SLOVAK_STOPWORDS, tokens)
 
     return preprocessed_text, tokens
 
 
-def pipeline_stemmer(text, save_keywords=False):
+def pipeline_stemmer(text, save_keywords=False, remove_stopwords=False):
     """
     Stems the input text and removes diacritics
     :param text:  input text
@@ -46,12 +48,12 @@ def pipeline_stemmer(text, save_keywords=False):
     """
     if not text:  # if the text isn't empty
         return []
-    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords)  # tokenize the text
+    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords, remove_stopwords=remove_stopwords)  # tokenize the text
     stemmed = preprocessor.stem(preprocessed_text, tokens)  # stem the tokens
     return stemmed
 
 
-def pipeline_lemmatizer(text, save_keywords=False):
+def pipeline_lemmatizer(text, save_keywords=False, remove_stopwords=False):
     """
     Lemmatizes the input text and removes diacritics
     :param text:  input text
@@ -59,7 +61,7 @@ def pipeline_lemmatizer(text, save_keywords=False):
     """
     if not text:  # if the text isn't empty
         return []
-    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords)  # tokenize the text
+    preprocessed_text, tokens = pipeline_tokenizer(text, save_keywords, remove_stopwords=remove_stopwords)  # tokenize the text
     lemmatized = preprocessor.lemmatize(preprocessed_text, tokens)  # lemmatize the tokens
     return lemmatized
 
@@ -92,7 +94,7 @@ def preprocess_file(file_path, pipeline):
     return preprocessed_data
 
 
-def preprocess(doc, doc_id, pipeline):
+def preprocess(doc, doc_id, pipeline, remove_stopwords=False):
     """
     Preprocesses the document using the lemmatizer or stemmer pipeline
     :param doc: input document
@@ -102,13 +104,13 @@ def preprocess(doc, doc_id, pipeline):
     """
 
     # this structure is assumed - output of the web crawler
-    preprocessed_data = {"title": pipeline(doc["title"], True), "table_of_contents": doc["table_of_contents"],
-                         "infobox": pipeline(doc["infobox"], True), "content": pipeline(doc["content"], True),
+    preprocessed_data = {"title": pipeline(doc["title"], True, remove_stopwords=remove_stopwords), "table_of_contents": doc["table_of_contents"],
+                         "infobox": pipeline(doc["infobox"], True, remove_stopwords=remove_stopwords), "content": pipeline(doc["content"], True, remove_stopwords=remove_stopwords),
                          "id": doc_id}
     chapter_num = r"\b\d+(?:\.\d+)*\b"  # regex for chapter number
     preprocessed_data["table_of_contents"] = [word for chapter in preprocessed_data["table_of_contents"] for word in
                                               pipeline(re.sub(chapter_num, "",
-                                                        chapter))]  # remove chapter numbers and preprocess the chapters
+                                                        chapter), remove_stopwords=remove_stopwords)]  # remove chapter numbers and preprocess the chapters
     return preprocessed_data
 
 

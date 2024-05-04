@@ -1,6 +1,4 @@
 import time
-# TODO pickle
-
 import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
@@ -97,30 +95,33 @@ def calculate_k_best_scores(scores, k):
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
 
-def create_snippet(content, positions):
+def create_snippet(content, positions, prox_search=False):
     """
     Creates a snippet from the content based on the positions
     :param content: content of the document
     :param positions: positions of the words in the snippet
     :return: snippet
     """
-    positions = np.array([item for sublist in positions for item in sublist])
-    positions.sort()
     content_tokens = preprocessing_pipelines.pipeline_tokenizer(content, snippet=True)[1]
-    # print("Positions:", positions)
-    if len(positions) == 0:
-        return " ".join(content_tokens[:min(len(content_tokens), 2 * WINDOW_SIZE)])
-    start = end = max_count = 0
-    best_window = None
+    if prox_search:
+        best_window = [positions[0], positions[-1]]
+    else:
+        positions = np.array([item for sublist in positions for item in sublist])
+        positions.sort()
+        # print("Positions:", positions)
+        if len(positions) == 0:
+            return " ".join(content_tokens[:min(len(content_tokens), 2 * WINDOW_SIZE)])
+        start = end = max_count = 0
+        best_window = None
 
-    while end < len(positions):
-        if positions[end] - positions[start] > WINDOW_SIZE:
-            start += 1
-        else:
-            if end - start + 1 > max_count:
-                max_count = end - start + 1
-                best_window = (positions[start], positions[end])
-            end += 1
+        while end < len(positions):
+            if positions[end] - positions[start] > WINDOW_SIZE:
+                start += 1
+            else:
+                if end - start + 1 > max_count:
+                    max_count = end - start + 1
+                    best_window = (positions[start], positions[end])
+                end += 1
     # print("Best window:", best_window)
 
     snippet = ""
@@ -271,7 +272,8 @@ def format_result(index, query, k_best_scores, result_obj):
         positions = []
         for word in query:
             if word in index.index["content"]:
-                positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
+                if str(docID) in index.index["content"][word]["docIDs"]:
+                    positions.append(index.index["content"][word]["docIDs"][str(docID)]["pos"])
         snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
         result_obj.append(SearchResult(docID, score, index.docs["docs"][str(docID)]["title"],
                                        snippet,
@@ -291,20 +293,19 @@ def proximity_search(query, index, field, scores, proximity, k):
     """
     best_scores = defaultdict(float)
     doc_positions = defaultdict(list)
-    print(scores)
     for docID in scores:
-        print("Proximity search for the query: {} in the field {} in the document {}".format(query, field, docID))
+        # print("Proximity search for the query: {} in the field {} in the document {}".format(query, field, docID))
         positions = []
         for word in query:
             if word not in index.index[field]:
-                print("Word", word, "not found in the index")
+                # print("Word", word, "not found in the index")
                 break
             elif docID not in index.index[field][word]["docIDs"]:
-                print("Word", word, "not found in the document")
+                # print("Word", word, "not found in the document")
                 break
             else:
                 positions.append(index.index[field][word]["docIDs"][docID]["pos"])
-        if len(positions) == 0:
+        if len(positions) != len(query):
             continue
         proximity_positions = [-1]
         last_pos = None
@@ -342,7 +343,7 @@ def proximity_search(query, index, field, scores, proximity, k):
         print("Document", docID, "with score", best_scores[docID])
         print("Title:", index.docs["docs"][str(docID)]["title"])
         print("\n")
-        snippet = create_snippet(index.docs["docs"][str(docID)]["content"], [doc_positions[docID]])
+        snippet = create_snippet(index.docs["docs"][str(docID)]["content"], doc_positions[docID], prox_search=True)
         print(snippet)
         result_obj.append(SearchResult(docID, best_scores[docID], index.docs["docs"][str(docID)]["title"],
                                        snippet,
@@ -351,17 +352,19 @@ def proximity_search(query, index, field, scores, proximity, k):
 
 
 index1 = Index(pipeline, "index_1", "test_index")
-# index1.create_index_from_folder("data")
-index1.load_index()
+index1.create_index_from_folder("data")
+# index1.save_index()
+# index1.load_index()
 # indexes = [index1]
+search("železná dýka je~50", "content", 3, index1, "tf-idf")
 
 index2 = Index(pipeline, "index2", "test_index2")
 index2.create_index_from_folder("data2")
 index2.create_document_from_url("/cs/wiki/Železná_dýka")
-search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
 indexes = [index1, index2]
 
 def main():
+    pass
     # index1 = Index(pipeline, "index_1", "test_index")
     # index1.create_index_from_folder("data")
     # ---------------------------------------------------------
@@ -426,10 +429,10 @@ def main():
     # search(query, "title", k, index1, model)
 
     # ---------------------------------------------------------
-    index2 = Index(pipeline, "index2", "test_index2")
-    index2.create_index_from_folder("data2")
-    index2.create_document_from_url("/cs/wiki/Železná_dýka")
-    search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
+    # index2 = Index(pipeline, "index2", "test_index2")
+    # index2.create_index_from_folder("data2")
+    # index2.create_document_from_url("/cs/wiki/Železná_dýka")
+    # search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
     # search("poslední migrace ~5", "content", 3, index2, "tf-idf")
     # search("železná dýka~1", "content", 3, index2, "tf-idf")
 
