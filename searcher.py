@@ -368,6 +368,8 @@ index1 = Index(pipeline, "index_1", "test_index")
 # index1.create_index_from_folder("data")
 # index1.save_index()
 index1.load_index()
+index1.set_keywords()
+# print("Keywords:", index1.keywords)
 # indexes = [index1]
 search("železná dýka", "content", 3, index1, "tf-idf", verbose=False)
 
@@ -379,9 +381,14 @@ index2.create_document_from_url("/cs/wiki/Železná_dýka")
 index2.delete_document(19)
 index2.update_document(2, "Železná dýka", "title")
 index2.update_document(2, "Železná dýka je", "title")
+index2.set_keywords()
 search("železná dýka", "title", 3, index2, "tf-idf", verbose=False)
 indexes = [index1, index2]
 
+# pipeline = preprocessing_pipelines.pipeline_lemmatizer
+# eval_index = Index(pipeline, "eval_index_stem_stop", "eval_index")
+# eval_index.load_index()
+# indexes = [eval_index, index1, index2]
 def main():
     pass
     # index1 = Index(pipeline, "index_1", "test_index")

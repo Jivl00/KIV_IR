@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize, QUrl
 from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox, \
-    QScrollBar, QAbstractItemView, QSpacerItem
+    QScrollBar, QAbstractItemView, QSpacerItem, QMessageBox, QDialog
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
     QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
 from functools import cached_property
@@ -51,12 +51,15 @@ class LineEdit(QLineEdit):
         if not self.model.findItems(word):
             self.model.appendRow(QStandardItem(word))
 
-    def add_words(self, words):
+    def change_keywords(self, words):
         self.completer = QCompleter(words)
         self.completer.setCaseSensitivity(0)
         self.completer.popup().setFont(font)
         self.completer.setWidget(self)
         self.completer.activated.connect(self.handle_activated)
+
+    def add_keywords(self, words):
+        pass
 
     def handle_text_changed(self):
         text = self.text()[0 : self.cursorPosition()]
@@ -81,6 +84,32 @@ class LineEdit(QLineEdit):
         self.add_word(text)
 
 
+class ClickableLabel(QLabel):
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        self.title = title
+        self.setText('<span style="color:#8bb6e0;">'+title +'</span>')
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            docID = self.title.split(" (id: ")[1].split(" -")[0]
+            index_name = SEARCH_CONFIG["index"]
+            index = [index for index in indexes if index.index_name == index_name][0]
+            document = index.docs["docs"][docID]
+            dialog = QDialog()
+            dialog.setWindowTitle(self.title)
+            dialog.setWindowFlags(dialog.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+            dialog.setWindowIcon(QIcon('img/magnifying-glass-3-xxl.png'))
+            dialog.resize(1000, 600)
+            layout = QVBoxLayout()
+            text_browser = QTextBrowser()
+            text_browser.setFont(font)
+            text_browser.setPlainText(document["content"])
+            layout.addWidget(text_browser)
+            dialog.setLayout(layout)
+            dialog.exec_()
+
+
 class ResultText(QWidget):
     def __init__(self, title, content):
         super().__init__()
@@ -94,7 +123,7 @@ class ResultText(QWidget):
         font_smaller.setPointSize(font_size - 2)
 
         # Create a QLabel for the title and set its font to the QFont object
-        self.title_label = QLabel('<span style="color:#8bb6e0;">'+title +'</span>')
+        self.title_label = ClickableLabel(title)
         self.title_label.setFont(font_bold)
         self.title_label.setWordWrap(True)
         self.title_label.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
@@ -149,9 +178,9 @@ class SearchEngineGUI(QWidget):
         # List of words for auto-suggestion
         with open("cache/keywords.txt", "r", encoding="utf-8") as file:
             words = file.read().splitlines()
-
+        # words = ["prdel", "skyrim"]
         words = sorted(set(words))
-        self.search_bar.add_words(words)
+        self.search_bar.change_keywords(words)
 
         # Connect the returnPressed signal to the perform_search method
         self.search_bar.returnPressed.connect(self.perform_search)
@@ -354,15 +383,10 @@ class SearchEngineGUI(QWidget):
         SEARCH_CONFIG["lang"] = self.checkbox_lang.isChecked()
         if not self.checkbox_lang.isChecked():
             self.under_search_bar_text.setText("")
-    def update_keywords(self):
-        # TODO resolve the segfault
-        # with open("cache/keywords.txt", "r", encoding="utf-8") as file:
-        #     words = file.read().splitlines()
-        #
-        # words = sorted(set(words))
-        pass
-        # self.search_bar.add_words(['prd', 'prdel'])
 
+    def update_keywords(self):
+        pass
+        # self.search_bar.change_keywords(['prd', 'prdel'])
 
 
 if __name__ == '__main__':

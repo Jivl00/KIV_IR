@@ -318,3 +318,16 @@ class Index:
         """
         doc = web_crawler.scrape_url(url)
         self.create_document(doc)
+
+
+    def set_keywords(self):
+        """
+        Sets the keywords for the index
+        :param keywords:  list of keywords
+        """
+        tokens = set()
+        fields = ["title", "infobox", "content"]
+        for docID in self.docs["docs"]:
+            for field in fields:
+                tokens.update(preprocessing_pipelines.pipeline_tokenizer(self.docs["docs"][docID][field])[1])
+        self.keywords = tokens
