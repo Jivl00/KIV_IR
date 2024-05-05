@@ -30,7 +30,7 @@ def load_queries():
 def load_documents():
     """
     Loads the documents from eval_data/czechData.csv
-    :return: list of documents
+    :return: dictionary of documents
     """
     documents_file = "eval_data/czechData.csv"
     df = pd.read_csv(documents_file, delimiter="|", encoding="utf-8", quoting=csv.QUOTE_NONE)
@@ -41,9 +41,8 @@ def load_documents():
     df["infobox"] = ""
     # if value is NaN, replace it with empty string
     df = df.fillna("")
-    # print(df)
-
     return df.to_dict(orient="records")
+
 def create_doc_cache(Index_obj, eval_docs):
     """
     Loads documents from the data folder and saves them to a cache
@@ -66,6 +65,7 @@ print(queries)
 eval_docs = load_documents()
 time_end = time.time()
 print("Loaded documents in", time_end - time_start, "seconds")
+
 time_start = time.time()
 eval_index = Index(pipeline, "eval_index_lem", "eval_index")
 
@@ -83,22 +83,21 @@ eval_index = Index(pipeline, "eval_index_lem", "eval_index")
 # eval_index.save_index()
 # time_end = time.time()
 # print("Saved index in", time_end - time_start, "seconds")
+# time_start = time.time()
 
-time_start = time.time()
 eval_index.load_index()
 time_end = time.time()
 print("Loaded index in", time_end - time_start, "seconds")
+
 model = "tf-idf"
 time_start = time.time()
 eval_results = ""
 for query_id in queries.keys():
     result_objs, num = search(queries[query_id], "", 100000, eval_index, model)
     if num == 0:
-        # t.getId() + " Q0 " + "abc" + " " + "99" + " " + 0.0 + " runindex1");
         line = query_id + " Q0 " + "abc" + " " + "99" + " " + str(0.0) + " runindex1"
         continue
     for rank, result in enumerate(result_objs):
-        # line = query.id + " Q0 " + doc.id + " " + result.rank + " " + result.score + " runindex1"
         true_doc_id = eval_index.docs["docs"][result.doc_id]["id"]
         line = query_id + " Q0 " + true_doc_id + " " + str(rank + 1) + " " + str(result.score) + " runindex1"
         eval_results += line + "\n"

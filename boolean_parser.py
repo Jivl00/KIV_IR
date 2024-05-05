@@ -1,6 +1,11 @@
 import re
 
 def infix_to_postfix(query):
+    """
+    Convert a boolean query from infix to postfix notation
+    :param query: str - boolean query in infix notation
+    :return: list - boolean query in postfix notation
+    """
     # Check if the boolean query is valid (e.g. no two operators next to each other)
     try:
         while re.search(r"AND AND|AND OR|OR AND|OR OR|NOT NOT| {2}", query):

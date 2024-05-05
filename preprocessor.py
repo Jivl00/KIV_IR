@@ -148,14 +148,13 @@ def lemmatize(line, tokens):
 
 def lemmatize2(line, tokens):
     """
-    Lemmatizes the tokens using simplemma library
+    Lemmatizes the tokens using lemmagen3 library
     :param line: input line for language detection
     :param tokens: input tokens
     :return: list of lemmatized tokens
     """
     lem_cs = Lemmatizer('cs')
 
-    # lemmatized = [simplemma.lemmatize(word, lang=("cs", "sk"), greedy=True) for word in tokens]
     lemmatized = [lem_cs.lemmatize(word) for word in tokens]
 
 

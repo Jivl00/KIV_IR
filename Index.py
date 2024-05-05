@@ -7,14 +7,36 @@ import preprocessing_pipelines
 from lang_detector import LangDetector
 
 class Index:
+    """
+    Class for creating and managing an inverted index
+
+    Attributes:
+    pipeline:  preprocessing pipeline to use
+    index_folder:  folder to save the index to
+    index_name:  name of the index
+    docs:  dictionary with documents
+    index:  inverted index
+    document_norms:  norms of the documents
+    keywords:  set of keywords
+    fields:  fields to index
+    lang_detector_all:  language detector for all languages
+    lang_detector_cz_sk:  language detector for Czech and Slovak
+
+    """
     def __init__(self, pipeline, index_folder, index_name):
+        """
+        Initializes the index
+        :param pipeline:  preprocessing pipeline
+        :param index_folder: folder to save the index to
+        :param index_name:  name of the index
+        """
         self.pipeline = pipeline
         self.index_folder = index_folder
         self.index_name = index_name
         self.docs = {}
         self.index = {}
         self.document_norms = {}
-        self.keywords = set()  # TODO: implement keyword extraction
+        self.keywords = set()
         self.fields = ["title", "table_of_contents", "infobox", "content"]
         self.lang_detector_all = LangDetector(only_czech_slovak=False)
         self.lang_detector_cz_sk = LangDetector(only_czech_slovak=True)
@@ -73,6 +95,7 @@ class Index:
     def create_index(self, preped_docs):
         """
         Creates an inverted index from the documents
+        :param preped_docs:  preprocessed documents
         """
         N = len(preped_docs)
         for field in self.fields:
@@ -132,7 +155,6 @@ class Index:
         """
         Removes the document from the index
         :param doc_id:  id of the document to remove
-        :return:  updated index and document norms and docs
         """
         doc_id = str(doc_id)
         print("Removing document \"{}\" with id {}".format(self.docs["docs"][doc_id]["title"], doc_id))
@@ -150,7 +172,6 @@ class Index:
             # Update the idf and df
             tokens = preprocessed_doc[field]
             for token in set(tokens):
-                old_idf = self.index[field][token]["idf"]
                 self.index[field][token]["df"] -= 1
                 df = self.index[field][token]["df"]
                 if df > 0:
@@ -201,7 +222,6 @@ class Index:
                 # Update the idf and df
                 self.index[field][token]["df"] += 1
                 df = self.index[field][token]["df"]
-                old_idf = self.index[field][token]["idf"]
                 idf = np.log10(N / float(df))
                 self.index[field][token]["idf"] = idf
                 # Update the tf-idf and norms of the documents affected by the change
@@ -261,7 +281,6 @@ class Index:
                         self.index[field].pop(token)
                         continue
                     df = self.index[field][token]["df"]
-                    old_idf = self.index[field][token]["idf"]
                     idf = np.log10(N / float(df))
                     self.index[field][token]["idf"] = idf
                     for docID in self.index[field][token]["docIDs"]:
@@ -276,7 +295,6 @@ class Index:
                 if token in preprocessed_text[field]:  # if the token is in the new text
                     self.index[field][token]["df"] += 1
                     df = self.index[field][token]["df"]
-                    old_idf = self.index[field][token]["idf"]
                     idf = np.log10(N / float(df))
                     self.index[field][token]["idf"] = idf
                     tf = preprocessed_text[field].count(token)
@@ -309,8 +327,6 @@ class Index:
                 old_doc_norm = self.document_norms[field][doc_id]
                 self.document_norms[field][doc_id] = np.sqrt(old_doc_norm ** 2 + (tf_idf ** 2))
 
-
-
     def create_document_from_url(self, url):
         """
         Creates a document from the URL
@@ -323,7 +339,6 @@ class Index:
     def set_keywords(self):
         """
         Sets the keywords for the index
-        :param keywords:  list of keywords
         """
         tokens = set()
         fields = ["title", "infobox", "content"]

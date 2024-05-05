@@ -2,7 +2,17 @@ import pickle
 
 
 class LangDetector:
+    """
+    Class for language detection.
+
+    :param only_czech_slovak: if True, only Czech and Slovak languages are used
+
+    """
     def __init__(self, only_czech_slovak=False):
+        """
+        Initialize the LangDetector class.
+        :param only_czech_slovak: if True, only Czech and Slovak languages are used
+        """
         if only_czech_slovak:
             self.languages = ['cs', 'sk']
             self.model = self.load_model('models/model_czsk.bin')
