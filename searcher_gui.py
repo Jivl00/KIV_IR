@@ -49,8 +49,10 @@ class LineEdit(QLineEdit):
             self.model.appendRow(item)
 
     def change_keywords(self, words):
+        self.completer.setModel(None)
         self.model.clear()
         self.add_keywords(words)
+        self.completer.setModel(self.model)
 
     def handle_text_changed(self):
         text = self.text()[0 : self.cursorPosition()]
