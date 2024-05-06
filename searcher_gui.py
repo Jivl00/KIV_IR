@@ -34,32 +34,23 @@ font.setPointSize(font_size)
 class LineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.completer.setWidget(self)
-        self.completer.setModel(self.model)
         self.textChanged.connect(self.handle_text_changed)
-        self.completer.activated.connect(self.handle_activated)
-
-    @cached_property
-    def model(self):
-        return QStandardItemModel()
-
-    @cached_property
-    def completer(self):
-        return QCompleter()
-
-    def add_word(self, word):
-        if not self.model.findItems(word):
-            self.model.appendRow(QStandardItem(word))
-
-    def change_keywords(self, words):
-        self.completer = QCompleter(words)
+        self.model = QStandardItemModel()
+        self.completer = QCompleter()
         self.completer.setCaseSensitivity(0)
         self.completer.popup().setFont(font)
         self.completer.setWidget(self)
+        self.completer.setModel(self.model)
         self.completer.activated.connect(self.handle_activated)
 
     def add_keywords(self, words):
-        pass
+        for word in words:
+            item = QStandardItem(word)
+            self.model.appendRow(item)
+
+    def change_keywords(self, words):
+        self.model.clear()
+        self.add_keywords(words)
 
     def handle_text_changed(self):
         text = self.text()[0 : self.cursorPosition()]
@@ -68,8 +59,6 @@ class LineEdit(QLineEdit):
             return
         words = text.split()
         if text.endswith(" "):
-            for word in words:
-                self.add_word(word)
             self.completer.popup().hide()
             return
         self.completer.setCompletionPrefix(words[-1])
@@ -81,7 +70,6 @@ class LineEdit(QLineEdit):
         self.blockSignals(True)
         self.insert(extra)
         self.blockSignals(False)
-        self.add_word(text)
 
 
 class ClickableLabel(QLabel):
@@ -92,7 +80,7 @@ class ClickableLabel(QLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            docID = self.title.split(" (id: ")[1].split(" -")[0]
+            docID = self.title.split(" (id: ")[1].split(" -")[0].replace(")", "")
             index_name = SEARCH_CONFIG["index"]
             index = [index for index in indexes if index.index_name == index_name][0]
             document = index.docs["docs"][docID]
@@ -176,9 +164,9 @@ class SearchEngineGUI(QWidget):
         # self.search_button.setFont(font)
 
         # List of words for auto-suggestion
-        with open("cache/keywords.txt", "r", encoding="utf-8") as file:
-            words = file.read().splitlines()
-        # words = ["prdel", "skyrim"]
+        index_name = SEARCH_CONFIG["index"]
+        index = [index for index in indexes if index.index_name == index_name][0]
+        words = index.keywords
         words = sorted(set(words))
         self.search_bar.change_keywords(words)
 
@@ -271,7 +259,7 @@ class SearchEngineGUI(QWidget):
         self.under_search_bar_text.setFont(font)
         grid_layout.addWidget(self.under_search_bar_text, 1, 1)
 
-        self.proximity_info = QLabel("Pro vyhledávání s využitím vzdáleností mezi slovy, zadejte dotaz ve formátu: <dotaz>~vzdálenost")
+        self.proximity_info = QLabel("Pro vyhledávání s využitím vzdáleností mezi slovy,\nzadejte dotaz ve formátu: <dotaz>~vzdálenost")
         self.proximity_info.setFont(font)
         grid_layout.addWidget(self.proximity_info, 2, 0)
 
@@ -303,14 +291,9 @@ class SearchEngineGUI(QWidget):
     def handle_model_selection(self):
         self.update_selected_model()
         if self.model_combobox.currentText() == "TF-IDF model":
-            # self.k_field.show()
-            # self.k_label.show()
             self.proximity_info.show()
             self.phrase_info.show()
         else:
-            # Otherwise, hide the k field and its label
-            # self.k_field.hide()
-            # self.k_label.hide()
             self.proximity_info.hide()
             self.phrase_info.hide()
 
@@ -336,7 +319,6 @@ class SearchEngineGUI(QWidget):
         return found, ret
 
     def perform_search(self):
-        self.update_keywords()
         SEARCH_CONFIG["query"] = self.search_bar.text()
         num, results = self.search_prep()  # Call the search method here
         self.result_display.clear()
@@ -372,6 +354,12 @@ class SearchEngineGUI(QWidget):
         SEARCH_CONFIG["field"] = self.field_combobox.currentText()
     def update_selected_index(self):
         SEARCH_CONFIG["index"] = self.index_combobox.currentText()
+        index_name = SEARCH_CONFIG["index"]
+        index = [index for index in indexes if index.index_name == index_name][0]
+        words = index.keywords
+        words = sorted(set(words))
+        self.search_bar.change_keywords(words)
+
 
     def update_selected_model(self):
         SEARCH_CONFIG["model"] = self.model_combobox.currentText()
@@ -383,10 +371,6 @@ class SearchEngineGUI(QWidget):
         SEARCH_CONFIG["lang"] = self.checkbox_lang.isChecked()
         if not self.checkbox_lang.isChecked():
             self.under_search_bar_text.setText("")
-
-    def update_keywords(self):
-        pass
-        # self.search_bar.change_keywords(['prd', 'prdel'])
 
 
 if __name__ == '__main__':

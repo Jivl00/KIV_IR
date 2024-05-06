@@ -259,7 +259,11 @@ def search(query, field, k, index, model, verbose=False):
         return boolean_search(query, field, k, index, verbose)
     proximity = 0
     if "~" in query:
-        proximity = int(query.split("~")[1])
+        proximity = query.split("~")[1]
+        if not proximity.isdigit():
+            print("Proximity must be a number")
+            return [], 0
+        proximity = int(proximity)
         query = query.split("~")[0]
     if "\"" in query:
         query = query.replace("\"", "")
@@ -280,9 +284,6 @@ def search(query, field, k, index, model, verbose=False):
             score_by_field[field] = k_best_scores
 
         results_total = len(docs_found)
-        print("Found", results_total, "documents in total")
-        if verbose:
-            print("Top", k, "documents:")
         field_weights = {"title": 1.1, "table_of_contents": 1, "infobox": 0.5, "content": 0.5}  # weights for the fields
         k_best_scores = {}
         for field in score_by_field:  # combine the scores from all fields
@@ -290,8 +291,11 @@ def search(query, field, k, index, model, verbose=False):
                 if docID not in k_best_scores:
                     k_best_scores[docID] = 0
                 k_best_scores[docID] += score * field_weights[field]  # add the score with the weight
-        if proximity > 0:
+        if proximity > 0 and len(query) > 1: # proximity search
             return proximity_search(query, index, "content", k_best_scores, proximity, k, verbose)
+        print("Found", results_total, "documents in total")
+        if verbose:
+            print("Top", k, "documents:")
         k_best_scores = calculate_k_best_scores(k_best_scores, k)
         format_result(index, query, k_best_scores, result_obj, verbose)
 
@@ -300,7 +304,7 @@ def search(query, field, k, index, model, verbose=False):
         query_tf_idf, query_norm = query_prep(query, index.index[field])
         scores = calculate_scores(query_tf_idf, query_norm, index, field)
 
-        if proximity > 0:
+        if proximity > 0 and len(query) > 1:  # proximity search
             return proximity_search(query, index, "content", scores, proximity, k, verbose)
         k_best_scores = calculate_k_best_scores(scores, k)
         print("Found", len(scores), "documents in total")
@@ -368,26 +372,32 @@ def proximity_search(query, index, field, scores, proximity, k, verbose=False):
                 positions.append(index.index[field][word]["docIDs"][docID]["pos"])
         if len(positions) != len(query):
             continue
-        proximity_positions = [-1] # dummy value
-        last_pos = None
-        for i in range(len(positions) - 1):
-            pos_list1 = positions[i]
-            pos_list2 = positions[i + 1]
-            found = False
-            for pos1 in pos_list1:
-                for pos2 in pos_list2:
-                    if proximity_positions[-1] < pos1 < pos2 and pos2 - pos1 <= proximity:
-                        proximity_positions.append(pos1)
-                        last_pos = pos2
-                        found = True
-                        break
-                if found:
-                    break
-        if last_pos is not None:
-            proximity_positions.append(last_pos)
-            proximity_positions = proximity_positions[1:]  # remove the first element -1
+        def find_combinations(positions, current, i, proximity):
+            if i == len(positions):
+                if all(abs(current[j] - current[j - 1]) <= proximity for j in range(1, len(current))):
+                    return current
+                else:
+                    return []
+            else:
+                for pos in positions[i]:
+                    combination = find_combinations(positions, current + [pos], i + 1, proximity)
+                    if combination:
+                        return combination
+                return []
 
-        if len(proximity_positions) == len(positions) and proximity_positions[0] != -1:
+        proximity_positions = find_combinations(positions, [], 0, proximity)
+        proximity_positions = sorted(proximity_positions)
+
+        # Post-filtering - check words consecutivness
+        if len(proximity_positions) == len(positions):
+            for p, pos in zip(proximity_positions, positions):
+                if p not in pos:
+                    proximity_positions[0] = -1
+                    break
+        else:
+            proximity_positions.append(-1)
+
+        if proximity_positions[0] != -1:
             best_scores[docID] = scores[docID]
             doc_positions[docID] = proximity_positions
             print("Found the proximity query in the document", proximity_positions)
@@ -418,6 +428,7 @@ index1.set_keywords()
 # print("Keywords:", index1.keywords)
 # indexes = [index1]
 search("železná dýka", "content", 3, index1, "tf-idf", verbose=False)
+search("\"skyrim je jednou\"", "", 10, index1, "tf-idf", verbose=True)
 
 index2 = Index(pipeline, "index2", "test_index2")
 index2.create_index_from_folder("data2")
@@ -459,11 +470,14 @@ def main():
     field = ""  # search in all fields
     k = 3
 
-    search(query, field, k, index1, model, verbose=True)
+    # search(query, field, k, index1, model, verbose=True)
+    search("\"skyrim je jednou\"", field, k, index1, model, verbose=True)
+    search("železná dýka zbraň~10", field, k, index1, model, verbose=True)
+    search("dýka železná~2", field, k, index1, model, verbose=True)
 
-    index1.delete_document(170)
-
-    search(query, field, k, index1, model, verbose=True)
+    # index1.delete_document(170)
+    #
+    # search(query, field, k, index1, model, verbose=True)
     #
     # # ---------------------------------------------------------
     # query = "Příchod lidí a Noc Slz"
