@@ -1,0 +1,7 @@
+lemmagen3==3.5.1
+lxml==4.9.1
+numpy==1.23.3
+pandas==1.4.2
+PyQt5==5.15.10
+PyQt5_sip==12.13.0
+simplemma==0.9.1
