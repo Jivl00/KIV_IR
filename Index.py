@@ -4,7 +4,7 @@ import web_crawler
 import numpy as np
 from collections import defaultdict
 import preprocessing_pipelines
-from lang_detector import LangDetector
+from utils.lang_detector import LangDetector
 
 class Index:
     """

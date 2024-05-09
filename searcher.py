@@ -2,18 +2,10 @@ import itertools
 import time
 import numpy as np
 from collections import defaultdict
-import preprocessing_pipelines
-from boolean_parser import infix_to_postfix
-from Index import Index
-
-# PIPELINE
-pipeline = preprocessing_pipelines.pipeline_stemmer
-# pipeline = preprocessing_pipelines.pipeline_lemmatizer
-
-WINDOW_SIZE = 30
+from utils.boolean_parser import infix_to_postfix
+from config import *
 
 fields = ["title", "table_of_contents", "infobox", "content"]
-
 
 class SearchResult:
     """
@@ -187,7 +179,10 @@ def boolean_search(query, field, k, index, verbose=False):
         if token not in ["AND", "OR", "NOT"]:
             if token == "":
                 continue
-            token = pipeline(token)[0]
+            prep = pipeline(token)
+            if len(prep) == 0:
+                continue
+            token = prep[0]
             words.add(token)
             if field == "":
                 all_docIDs = set()
@@ -223,19 +218,19 @@ def boolean_search(query, field, k, index, verbose=False):
             if word in index.index["content"]:
                 if docID in index.index["content"][word]["docIDs"]:
                     positions.append(index.index["content"][word]["docIDs"][docID]["pos"])
-        snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
         if verbose:
             print("Top", k, "documents:")
             print("Document", docID)
             print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
         if "lang_all" in index.docs["docs"][str(docID)]:
+            snippet = create_snippet(index.docs["docs"][str(docID)]["content"], positions)
             result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
                                            snippet,
                                            index.docs["docs"][str(docID)]["lang_all"]))
         else:
             result_obj.append(SearchResult(docID, 0, index.docs["docs"][str(docID)]["title"],
-                                           snippet))
+                                           "snippet"))
 
     return result_obj, len(result)
 
@@ -328,7 +323,7 @@ def format_result(index, query, k_best_scores, result_obj, verbose=True):
     """
     for docID, score in k_best_scores:
         if verbose:
-            print("Document", docID, "with score", score)
+            print(f"Document {docID} with score {score:.3f}")
             print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
         if "lang_all" in index.docs["docs"][str(docID)]:
@@ -400,7 +395,6 @@ def proximity_search(query, index, field, scores, proximity, k, verbose=False):
         if proximity_positions[0] != -1:
             best_scores[docID] = scores[docID]
             doc_positions[docID] = proximity_positions
-            print("Found the proximity query in the document", proximity_positions)
     results_total = len(best_scores)
     if k > len(best_scores):
         k = len(best_scores)
@@ -410,7 +404,7 @@ def proximity_search(query, index, field, scores, proximity, k, verbose=False):
     for docID in k_best_scores.keys():
         snippet = create_snippet(index.docs["docs"][str(docID)]["content"], doc_positions[docID], prox_search=True)
         if verbose:
-            print("Document", docID, "with score", best_scores[docID])
+            print(f"Document {docID} with score {best_scores[docID]:.3f}")
             print("Title:", index.docs["docs"][str(docID)]["title"])
             print("\n")
             print(snippet)
@@ -418,112 +412,3 @@ def proximity_search(query, index, field, scores, proximity, k, verbose=False):
                                        snippet,
                                        index.docs["docs"][str(docID)]["lang_all"]))
     return result_obj, results_total
-
-
-index1 = Index(pipeline, "index_1", "test_index")
-# index1.create_index_from_folder("data")
-# index1.save_index()
-index1.load_index()
-index1.set_keywords()
-# print("Keywords:", index1.keywords)
-# indexes = [index1]
-search("železná dýka", "content", 3, index1, "tf-idf", verbose=False)
-search("\"skyrim je jednou\"", "", 10, index1, "tf-idf", verbose=True)
-
-index2 = Index(pipeline, "index2", "test_index2")
-index2.create_index_from_folder("data2")
-index2.save_index()
-index2.load_index()
-index2.create_document_from_url("/cs/wiki/Železná_dýka")
-index2.delete_document(19)
-index2.update_document(2, "Železná dýka", "title")
-index2.update_document(2, "Železná dýka je", "title")
-index2.set_keywords()
-search("železná dýka", "title", 3, index2, "tf-idf", verbose=False)
-indexes = [index1, index2]
-
-
-# pipeline = preprocessing_pipelines.pipeline_lemmatizer
-# eval_index = Index(pipeline, "eval_index_stem_stop", "eval_index")
-# eval_index.load_index()
-# indexes = [eval_index, index1, index2]
-def main():
-    pass
-    # index1 = Index(pipeline, "index_1", "test_index")
-    # index1.create_index_from_folder("data")
-    # ---------------------------------------------------------
-    # -----------Searching for the query-----------------------
-    query = "\"zbraň OR dýka\""
-    model = "boolean"
-    k = 3
-
-    search(query, "", k, index1, model, verbose=True)
-    # # index1.delete_document(850)
-    # # search(query, "", k, index1, model)
-    #
-    # # ---------------------------------------------------------
-    #
-    # # search("nůž OR NOT dýka", "title", k, index1.index, model, index1.document_norms, index1.docs)
-    # # ---------------------------------------------------------
-    model = "tf-idf"
-    query = "Kdo je daedrický princ?"
-    field = ""  # search in all fields
-    k = 3
-
-    # search(query, field, k, index1, model, verbose=True)
-    search("\"skyrim je jednou\"", field, k, index1, model, verbose=True)
-    search("železná dýka zbraň~10", field, k, index1, model, verbose=True)
-    search("dýka železná~2", field, k, index1, model, verbose=True)
-
-    # index1.delete_document(170)
-    #
-    # search(query, field, k, index1, model, verbose=True)
-    #
-    # # ---------------------------------------------------------
-    # query = "Příchod lidí a Noc Slz"
-    # field = "table_of_contents"  # search in the table of contents
-    # k = 3
-    #
-    # search(query, field, k, index1, model)
-    # # ---------------------------------------------------------
-    # query = "dýka"
-    # field = "content"  # search in the content
-    # k = 5
-    #
-    # search(query, field, k, index1, model)
-    #
-    # index1.create_document(
-    #     {"title": "Nůž a dýka a prdel", "table_of_contents": [], "infobox": "", "content": "Nůž a dýka a prdel"})
-    # query = "dýka"
-    # model = "tf-idf"
-    # k = 3
-    #
-    # search(query, "content", k, index1, model)
-    #
-    # index1.delete_document(170)
-    # search(query, "content", k, index1, model)
-    #
-    # # ---------------------------------------------------------
-    # query = "Keening"
-    #
-    # search(query, "title", k, index1, model)
-    #
-    # index1.update_document(376, "Keening prdel", "title")
-    # search(query, "title", k, index1, model)
-    #
-    # index1.update_document(376, "Keening", "title")
-    # search(query, "title", k, index1, model)
-
-    # ---------------------------------------------------------
-    # index2 = Index(pipeline, "index2", "test_index2")
-    # index2.create_index_from_folder("data2")
-    # index2.create_document_from_url("/cs/wiki/Železná_dýka")
-    # search("dýka zbraň vyskytující~8", "content", 3, index2, "tf-idf")
-    # search("poslední migrace ~5", "content", 3, index2, "tf-idf")
-    # search("železná dýka~1", "content", 3, index2, "tf-idf")
-
-
-if __name__ == "__main__":
-    start_time = time.time()
-    main()
-    print("--- %s seconds ---" % (time.time() - start_time))

@@ -1,16 +1,14 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QSize, QUrl
-from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QTreeWidgetItem, QGroupBox, \
-    QScrollBar, QAbstractItemView, QSpacerItem, QMessageBox, QDialog
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QFormLayout, QCompleter, \
-    QListWidgetItem, QListWidget, QComboBox, QLabel, QHBoxLayout
-from functools import cached_property
+from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QGridLayout, QPushButton, QCheckBox, QSpinBox, QTextBrowser, QAbstractItemView, QSpacerItem, \
+    QDialog
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QListWidgetItem, QListWidget, QComboBox, QLabel
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QFont, QStandardItem, QStandardItemModel
 from PyQt5.QtWidgets import QApplication, QCompleter, QLineEdit
 import qdarktheme
 
-from lang_detector import LangDetector
+from utils.lang_detector import LangDetector
 from PyQt5.QtCore import Qt
 from searcher import *
 
@@ -301,7 +299,6 @@ class SearchEngineGUI(QWidget):
 
     def search_prep(self):
         user_search_history.append(SEARCH_CONFIG["query"])  # Append the query to the user search history
-        print("Search config:", SEARCH_CONFIG)
         index_name = SEARCH_CONFIG["index"]
         index = [index for index in indexes if index.index_name == index_name][0]
         field = {"Celý dokument": "", "Nadpis": "title", "Obsah": "table_of_contents", "Tabulka": "infobox", "Hlavní text": "content"}.get(SEARCH_CONFIG["field"], "content")

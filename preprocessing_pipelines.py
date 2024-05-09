@@ -1,7 +1,7 @@
 import json
 import re
 
-import preprocessor
+import utils.preprocessor as preprocessor
 
 # stopwords taken from Stopwords ISO: https://github.com/stopwords-iso
 CZECH_STOPWORDS = "utils/stopwords-cs.txt"
